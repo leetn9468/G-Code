@@ -9,6 +9,7 @@ import MLXServerKit
 
 let usage = """
 Usage: gcode-mlx-server --model <folder> --port <n> [--host 127.0.0.1] [--ctx-size <tokens>] [--alias <name>]
+       gcode-mlx-server --check-model <folder>   (prints whether the model can be loaded, as JSON; exit 0 or 2)
 """
 
 func log(_ message: String) { FileHandle.standardError.write(Data((message + "\n").utf8)) }
@@ -26,6 +27,12 @@ while index < CommandLine.arguments.count {
     guard name.hasPrefix("--"), index + 1 < CommandLine.arguments.count else { fatal("Unknown argument \(name)\n\(usage)") }
     arguments[name] = CommandLine.arguments[index + 1]
     index += 2
+}
+if let folder = arguments["--check-model"] {
+    let support = modelSupportBlocking(URL(fileURLWithPath: folder, isDirectory: true))
+    let json = try! JSONSerialization.data(withJSONObject: support.json, options: [.sortedKeys, .withoutEscapingSlashes])
+    print(String(decoding: json, as: UTF8.self))
+    exit(support.supported ? 0 : 2)
 }
 guard let modelPath = arguments["--model"], let port = arguments["--port"].flatMap(UInt16.init) else { fatal(usage) }
 let host = arguments["--host"] ?? "127.0.0.1"
@@ -184,6 +191,9 @@ server.start { fatal($0) }
 Task.detached {
     do {
         Memory.cacheLimit = 2 * 1024 * 1024 * 1024
+        // An architecture this build cannot load fails here, with its reason, before any weights are read.
+        let support = await modelSupport(directory)
+        guard support.supported else { fatal("Failed to load the MLX model: \(support.message ?? "unsupported model")") }
         let context = try await loadModel(from: directory, using: LocalTokenizerLoader())
         let engine = Engine(context: context, directory: directory, contextSize: contextSize)
         engineLock.withLock { loadedEngine = engine }

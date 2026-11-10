@@ -17,3 +17,8 @@
 .gc-status-tip { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .gc-status-path { color: var(--text-muted); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .gc-status-count { font-variant-numeric: tabular-nums; }
+
+/* Local model speed, right of the session state. Muted like the strip; brighter while it is measured
+   live. Tabular digits come from the strip, so a changing value does not jitter. */
+.gc-statusbar .gc-status-speed { color: var(--text-muted); transition: color var(--dur-base) var(--ease-out); }
+.gc-statusbar .gc-status-speed.is-live { color: var(--text-secondary); }

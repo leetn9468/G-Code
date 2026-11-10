@@ -13,7 +13,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-RECIPE_VERSION = 1
+# 2: coverage instrumentation is switched off and checked for.
+RECIPE_VERSION = 2
 ROOT = Path(__file__).resolve().parent.parent
 SOURCE = ROOT / 'mlx-server'
 DESTINATION = ROOT / 'runtime' / 'mlx'
@@ -31,6 +32,13 @@ def file_sha256(path):
         for block in iter(lambda: handle.read(1 << 20), b''):
             digest.update(block)
     return digest.hexdigest()
+
+
+def instrumented(path):
+    """True when the binary carries LLVM profile or coverage sections. An instrumented server writes
+    default.profraw into its working directory on exit, and the app starts it in a read-only one."""
+    listing = subprocess.run(['otool', '-l', str(path)], capture_output=True, text=True, check=True).stdout
+    return '__llvm_prf' in listing or '__llvm_cov' in listing
 
 
 def source_sha256():
@@ -55,12 +63,17 @@ def main():
     final = DESTINATION / 'bin' / BINARY
     if args.if_needed and final.is_file() and manifest_path.is_file():
         manifest = json.loads(manifest_path.read_text())
-        if manifest.get('source_sha256') == expected and manifest.get('binary_sha256') == file_sha256(final):
+        if manifest.get('source_sha256') == expected and manifest.get('binary_sha256') == file_sha256(final) and not instrumented(final):
             print(f'MLX runtime is current: {final}')
             return
 
+    # Coverage stays off whatever the scheme asks for (`-enableCodeCoverage` is a test-only flag), and the
+    # check below refuses a server that is instrumented anyway.
     subprocess.check_call(['xcodebuild', '-scheme', BINARY, '-configuration', 'Release', '-destination', 'platform=macOS,arch=arm64',
-                           '-derivedDataPath', str(BUILD), '-skipPackagePluginValidation', '-skipMacroValidation', '-quiet', 'build'], cwd=SOURCE)
+                           '-derivedDataPath', str(BUILD), '-skipPackagePluginValidation', '-skipMacroValidation',
+                           'CLANG_ENABLE_CODE_COVERAGE=NO', 'CLANG_COVERAGE_MAPPING=NO', '-quiet', 'build'], cwd=SOURCE)
+    if instrumented(PRODUCTS / BINARY):
+        sys.exit(f'{PRODUCTS / BINARY} carries coverage instrumentation; delete {BUILD} and build again.')
 
     pending = DESTINATION.with_name('mlx.installing')
     shutil.rmtree(pending, ignore_errors=True)
@@ -75,7 +88,7 @@ def main():
         for name in ('LICENSE', 'ACKNOWLEDGMENTS.md', 'VENDORED-FROM.txt'):
             if (directory / name).is_file():
                 shutil.copy2(directory / name, licenses / package / name)
-    for checkout in sorted((BUILD / 'SourcePackages' / 'checkouts').iterdir()):
+    for checkout in sorted(p for p in (BUILD / 'SourcePackages' / 'checkouts').iterdir() if p.is_dir()):
         found = [p for p in checkout.iterdir() if p.is_file() and p.name.upper().startswith(('LICENSE', 'NOTICE'))]
         if found:
             (licenses / checkout.name).mkdir()

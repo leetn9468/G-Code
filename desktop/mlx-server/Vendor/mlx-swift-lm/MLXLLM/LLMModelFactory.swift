@@ -70,6 +70,9 @@ public enum LLMTypeRegistry {
         "qwen3_5": create(Qwen35Configuration.self, Qwen35Model.init),
         "qwen3_5_moe": create(Qwen35Configuration.self, Qwen35MoEModel.init),
         "qwen3_5_text": create(Qwen35TextConfiguration.self, Qwen35TextModel.init),
+        // G-Code: Qwen3.8-Flash-Next (Models/Qwen4Exp.swift).
+        "qwen4_exp": create(Qwen4ExpConfiguration.self, Qwen4ExpModel.init),
+        "qwen4_exp_text": create(Qwen4ExpTextConfiguration.self, Qwen4ExpTextModel.init),
         "nanbeige": create(NanbeigeConfiguration.self, NanbeigeModel.init),
         "minicpm": create(MiniCPMConfiguration.self, MiniCPMModel.init),
         "starcoder2": create(Starcoder2Configuration.self, Starcoder2Model.init),

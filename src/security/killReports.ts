@@ -43,7 +43,7 @@ export interface KillReport { file: string; pid: number; parentPid?: number; pro
 const MAX_REPORT_BYTES = 4 * 1024 * 1024
 /** A report that does not parse yet is read again until it is this old. macOS renames complete ones into place, so this is a margin. */
 const PARTIAL_RETRY_MS = 5000
-/** `log show --last`, in minutes: it finds what `--start` finds (measured 2026-11-06), and costs more the further back it reads. */
+/** `log show --last`, in minutes: it finds what `--start` finds, and costs more the further back it reads. */
 const STORE_SPAN_MINUTES = 2
 const STORE_MAX_SPAN_MINUTES = 30
 /** A query normally takes about a second. A timer of its own: Bun can lose every event of a child (see src/utils/subprocess.ts). */

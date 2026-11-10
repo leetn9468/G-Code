@@ -118,7 +118,8 @@ export function getProviderDisplayName(provider: ProviderName): string {
     deepseek: 'DeepSeek',
     qwen: 'Alibaba (Qwen)',
     ollama: 'Ollama (Local)',
-    local: 'Local GGUF',
+    // A local OpenAI-compatible server: llama.cpp for a GGUF file or G-Code's MLX server for a folder.
+    local: 'Local model',
   }
   return names[provider] ?? provider
 }

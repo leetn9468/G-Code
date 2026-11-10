@@ -138,6 +138,35 @@ fn find_mlx_runtime() -> Result<PathBuf, String> {
 
 fn is_mlx_model(path: &str) -> bool { Path::new(path).is_dir() }
 
+/// Asks the bundled MLX server whether it can load this folder (`--check-model` reads config.json
+/// only), so an architecture it lacks is reported before the server is started, with the server's
+/// own reason. The list of architectures lives in the server alone.
+fn mlx_support(server: &Path, model: &Path, cancelled: impl Fn() -> bool, limit: Duration) -> Result<(), String> {
+    let mut command = Command::new(server);
+    command.arg("--check-model").arg(model).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null());
+    clean_environment(&mut command);
+    let mut child = command.spawn().map_err(|e| format!("Cannot start the MLX model check: {e}"))?;
+    let deadline = Instant::now() + limit;
+    loop {
+        let stop = cancelled();
+        if stop || Instant::now() >= deadline {
+            let _ = child.kill(); let _ = child.wait();
+            return Err(if stop { "Model loading cancelled; MLX model check stopped".into() } else { "Timed out checking the MLX model. The check was stopped.".into() });
+        }
+        if child.try_wait().map_err(|e| e.to_string())?.is_some() {
+            let mut data = String::new();
+            if let Some(stdout) = child.stdout.take() { stdout.take(16_384).read_to_string(&mut data).map_err(|e| e.to_string())?; }
+            let answer: serde_json::Value = serde_json::from_str(data.trim()).map_err(|_| "The MLX model check exited without a valid result".to_string())?;
+            return match answer.get("supported").and_then(serde_json::Value::as_bool) {
+                Some(true) => Ok(()),
+                Some(false) => Err(answer.get("message").and_then(serde_json::Value::as_str).unwrap_or("G-Code's built-in MLX engine cannot load this model.").to_string()),
+                None => Err("The MLX model check exited without a valid result".into()),
+            };
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+}
+
 pub fn check(model_path: Option<String>, runtime_path: Option<String>) -> LocalModelStatus {
     check_cancellable(model_path, runtime_path, || false)
 }
@@ -146,7 +175,11 @@ fn check_cancellable(model_path: Option<String>, runtime_path: Option<String>, c
     let model_path = setting_path(model_path, "/provider/localModelPath");
     let runtime = if model_path.as_deref().is_some_and(is_mlx_model) { find_mlx_runtime() } else { find_runtime(runtime_path) };
     let validation = model_path.as_deref().ok_or("Choose a downloaded GGUF file or MLX model folder".to_string())
-        .and_then(|path| validate_model_bounded(Path::new(path), cancelled));
+        .and_then(|path| validate_model_bounded(Path::new(path), &cancelled))
+        .and_then(|meta| match (&runtime, model_path.as_deref()) {
+            (Ok(server), Some(path)) if is_mlx_model(path) => mlx_support(server, Path::new(path), &cancelled, RUNTIME_CHECK_LIMIT).map(|_| meta),
+            _ => Ok(meta),
+        });
     let error = validation.as_ref().err().cloned().or_else(|| runtime.as_ref().err().cloned());
     LocalModelStatus { model_path, runtime_path: runtime.ok().map(|p| p.to_string_lossy().into_owned()), ready: error.is_none(), error, metadata: validation.ok(), applied_context: None, context_reason: None }
 }
@@ -225,9 +258,40 @@ fn slot_metrics(value: &serde_json::Value) -> Option<serde_json::Value> {
         Some(slot) => serde_json::json!({"kind":"inference", "processing":true,
             "promptTokens":slot.get("n_prompt_tokens").and_then(|v| v.as_u64()),
             "generatedTokens":slot.get("n_decoded").or_else(|| slot.pointer("/next_token/0/n_decoded")).and_then(|v| v.as_u64()),
-            "contextSize":slot.get("n_ctx").and_then(|v| v.as_u64())}),
+            "contextSize":slot.get("n_ctx").and_then(|v| v.as_u64()),
+            // llama-server's request id; G-Code's MLX server has none.
+            "task":slot.get("id_task").and_then(|v| v.as_u64())}),
         None => serde_json::json!({"kind":"inference", "processing":false}),
     })
+}
+
+/// How often the app reads the local server's `/slots` while a model is loaded.
+const SLOT_POLL: Duration = Duration::from_millis(500);
+
+/// Generation speed of the local model from successive `/slots` readings: the tokens decoded since
+/// the first reading that saw this reply decoding, over the time between those two readings. Prompt
+/// processing is left out, because that first reading comes after decoding began. A reading that
+/// shows another reply starts a new measure: another task id (llama-server, whose prompt count grows
+/// as it decodes), another prompt size (G-Code's MLX server, which has no task id), or fewer tokens.
+#[derive(Default)]
+struct SpeedMeter { start: Option<(Instant, u64)>, reply: Option<u64>, decoded: u64 }
+
+impl SpeedMeter {
+    /// The shortest stretch a speed is reported over, so that one reading's timing does not swing it.
+    const MIN_SPAN: Duration = Duration::from_millis(400);
+
+    fn observe(&mut self, metrics: &serde_json::Value, at: Instant) -> Option<f64> {
+        let processing = metrics.get("processing").and_then(|v| v.as_bool()) == Some(true);
+        let decoded = metrics.get("generatedTokens").and_then(|v| v.as_u64()).unwrap_or(0);
+        let number = |key: &str| metrics.get(key).and_then(|v| v.as_u64());
+        let reply = number("task").or_else(|| number("promptTokens"));
+        if !processing || decoded == 0 { *self = Self::default(); return None; }
+        if reply != self.reply || decoded < self.decoded { self.start = None; }
+        self.reply = reply; self.decoded = decoded;
+        let (since, first) = *self.start.get_or_insert((at, decoded));
+        let span = at.saturating_duration_since(since);
+        (decoded > first && span >= Self::MIN_SPAN).then(|| (decoded - first) as f64 / span.as_secs_f64())
+    }
 }
 
 type Progress = Arc<dyn Fn(serde_json::Value) + Send + Sync>;
@@ -274,13 +338,18 @@ fn start_inner(model_path: Option<String>, runtime_path: Option<String>, local_c
     let origin = runtime.base_url.trim_end_matches("/v1").to_owned();
     std::thread::spawn(move || {
         let Ok(client) = reqwest::blocking::Client::builder().timeout(Duration::from_millis(750)).no_proxy().build() else { return; };
+        let mut meter = SpeedMeter::default();
         while !stop.load(std::sync::atomic::Ordering::SeqCst) {
             if let Ok(response) = client.get(format!("{origin}/slots")).send() {
                 if let Ok(value) = response.json::<serde_json::Value>() {
-                    if let Some(metrics) = slot_metrics(&value) { if !stop.load(std::sync::atomic::Ordering::SeqCst) { progress(metrics); } }
+                    if let Some(mut metrics) = slot_metrics(&value) {
+                        // The reading's time is when its answer arrived: the server reports between decode steps.
+                        if let Some(speed) = meter.observe(&metrics, Instant::now()) { metrics["tokensPerSecond"] = serde_json::json!((speed * 10.0).round() / 10.0); }
+                        if !stop.load(std::sync::atomic::Ordering::SeqCst) { progress(metrics); }
+                    }
                 }
             }
-            std::thread::sleep(Duration::from_secs(1));
+            std::thread::sleep(SLOT_POLL);
         }
     });
     Ok(runtime)

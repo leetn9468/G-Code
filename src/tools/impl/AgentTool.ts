@@ -98,7 +98,7 @@ function failure(call: CallRecord, cwd: string): string {
   // A first line that ends in ':' introduces the reason ('Not run: invalid input for "X":' then '- issue'): keep its first item.
   const opening = lines[0]?.endsWith(':') && lines[1] ? `${lines[0]} ${lines[1].replace(/^- /, '')}` : lines[0] ?? ''
   // A command's first line is the fixed "Command failed": why it failed is its first stderr line. What it
-  // printed is no reason: a failing `node --test` ends with an assertion's closing "}" (e2, round 20).
+  // printed is no reason: a failing `node --test` ends with an assertion's closing "}".
   const said = call.name === 'Bash' && opening === 'Command failed' ? lines.slice(1).find(line => line.startsWith('STDERR: '))?.slice(8).trim() : undefined
   const first = said ? `${opening}: ${said}` : opening
   // A denial or cancellation says so first, unless its reason already does ("Not run: …").

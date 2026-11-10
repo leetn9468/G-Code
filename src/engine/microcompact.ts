@@ -191,9 +191,8 @@ export function microcompactMessages(messages: LLMMessage[]): number {
 /**
  * Images dropped beyond what a request over a limit needs. Dropping an old image rewrites the
  * history after it, so the prompt cache misses once and that history is billed as a cache write.
- * Dropped one at a time, every new image past the limit misses again (f1, round 18: 11 misses in
- * 39 images, cache read ratio 0.669). This room makes it one miss per 5 images (replayed on f1's
- * calls: 4 misses, ratio 0.85, cache cost down 45%).
+ * Dropped one at a time, every new image past the limit misses again. This room makes it
+ * one miss per 5 images.
  */
 export const IMAGE_DROP_ROOM = 4
 

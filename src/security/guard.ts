@@ -23,7 +23,7 @@ export const GUARD_PROXY_PORTS = Array.from({ length: 128 }, (_, i) => 17800 + i
 /**
  * The monitor probes of one fence. The first is a plain denial, so an ordinary step leaves no macOS
  * crash report. Its report arrives in about 20 ms, also at load 50, or not at all: macOS lost about 1
- * in 100 (measured 2026-11-05). The later probes are SIGKILLed, which forces the report (and leaves
+ * in 100. The later probes are SIGKILLed, which forces the report (and leaves
  * one curl crash report, no dialog). Work stays blocked meanwhile.
  */
 const FENCE_PROBES = [{ kill: false, waitMs: 3_000 }, { kill: true, waitMs: 15_000 }, { kill: true, waitMs: 30_000 }] as const
@@ -297,7 +297,7 @@ export class NetworkGuard {
   /**
    * Proves every earlier denial report that macOS delivered has been read: a probe's own TEST-NET
    * denial arrives after them. A report macOS lost cannot be proved (about 1 denied attempt in 300,
-   * killed but never logged, measured 2026-11-05): settleKills covers those whose kill the launcher saw,
+   * killed but never logged): settleKills covers those whose kill the launcher saw,
    * and readKillReports the rest, up to half a second after this fence has passed. Skipped when no sandboxed process ran or
    * runs since the last proof (model requests and in-process tools start none). A probe's own report
    * can be lost too, so further probes follow (FENCE_PROBES) before work stops.

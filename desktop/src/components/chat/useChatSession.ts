@@ -10,6 +10,7 @@ import { isTauri, loadSavedSession, respondContextFull, respondToolApproval, sen
 import { handoffContinuation, type ContextFullChoice } from '../../../../src/shared/execution'
 import type { BackgroundShellInfo } from '../../../../src/shared/tasks'
 import type { ChatMessage, ToolExecution } from './types'
+import { nextGenerationSpeed, type GenerationSpeed } from '@/lib/generationSpeed'
 import type { DesktopToolApprovalRequest } from '@/lib/tauri'
 import { SessionCancelledError, SessionLifecycle } from '@/lib/sessionLifecycle'
 import { sessionLock, sessionLockMessage } from '@/lib/sessionLock'
@@ -183,6 +184,8 @@ const configurationKey = (provider: ProviderName, model: string, ollamaHost?: st
 export function useChatSession(provider: ProviderName, model: string, ollamaHost?: string, localModelPath?: string, localRuntimePath?: string, cwd?: string, environment: ExecutionEnvironment = 'local', permission: SessionPermission = 'default', effort: Effort = 'medium', localContext?: number, budgetSettings?: BudgetSettings) {
   const [modelRuntime, setModelRuntime] = useState<ModelRuntimeStatus | null>(null)
   const [inferenceMetrics, setInferenceMetrics] = useState<InferenceMetrics | null>(null)
+  // The local model's speed for the status strip: kept between replies, cleared with the session or model.
+  const [generationSpeed, setGenerationSpeed] = useState<GenerationSpeed | null>(null)
   const [networkIncident, setNetworkIncident] = useState<NetworkIncident | null>(null)
   const [networkOpen, setNetworkOpen] = useState(false)
   const networkRef = useRef<NetworkIncident | null>(null)
@@ -390,7 +393,11 @@ export function useChatSession(provider: ProviderName, model: string, ollamaHost
           setModelRuntime(payload as unknown as ModelRuntimeStatus)
           if (sending.current) setActivity(payload.phase === 'ready' ? 'Preparing response…' : String(payload.message ?? 'Loading model…'))
         }
-        if (payload.kind === 'inference') setInferenceMetrics(payload as unknown as InferenceMetrics)
+        if (payload.kind === 'inference') {
+          const metrics = payload as unknown as InferenceMetrics
+          setInferenceMetrics(metrics)
+          setGenerationSpeed(previous => nextGenerationSpeed(previous, metrics))
+        }
       }),
       subscribe('cli-tool-state', ({ payload }) => {
         if (!acceptingEvents.current || typeof payload.id !== 'string' || typeof payload.name !== 'string' || !Object.hasOwn(TOOL_LABELS, String(payload.state))) return
@@ -544,7 +551,7 @@ export function useChatSession(provider: ProviderName, model: string, ollamaHost
     // Text that never reached this conversation goes back to the composer.
     restoreDraft(steers.current.map(steer => steer.text)); steers.current = []; setResendPending(false); setQueuedLast(null); endTurnStream()
     setSessionRunning(false); setStreaming(false); setActivity(''); setApproval(null)
-    setModelRuntime(null); setInferenceMetrics(null)
+    setModelRuntime(null); setInferenceMetrics(null); setGenerationSpeed(null)
     setNetwork(null); setNetworkOpen(false)
     setBudget(null); setBudgetOpen(false)
     setContext(null); setOutputs([]); setRuntimePermission(null); setContextFull(null); setBackgroundTasks([])
@@ -585,7 +592,7 @@ export function useChatSession(provider: ProviderName, model: string, ollamaHost
     if (provider !== 'local') return
     const restart = sessionRunning
     resumeId.current = activeSessionId.current ?? resumeId.current
-    setModelRuntime(null); setInferenceMetrics(null); setSessionRunning(false)
+    setModelRuntime(null); setInferenceMetrics(null); setGenerationSpeed(null); setSessionRunning(false)
     discardUnsentTurn(); sending.current = false; setStreaming(false); setActivity('')
     const cancelled = stop()
     const version = configurationVersion.current
@@ -949,5 +956,5 @@ export function useChatSession(provider: ProviderName, model: string, ollamaHost
   /** Why the composer cannot send right now (only the hook's own reasons; App adds the rest). From the handoff on, not just once the takeover starts. */
   const sendBlockedReason = networkIncident && !networkIncident.decision ? 'Network attempt blocked · Review the incident before continuing' : lockLostSessionId ? 'Resume this chat to load its latest saved progress, or start a new chat.' : takeover ? HANDOFF_STARTING : budget && budget.phase !== 'active' ? 'Budget reached · Choose how to continue' : (budget || normalizeBudget(budgetSettings).enabled) ? budgetModelProblem(provider, model, provider !== 'ollama' || localBudgetEndpoint(ollamaHost)) : undefined
 
-  return { networkIncident, networkOpen, setNetworkOpen, decideNetwork, budget, budgetOpen, setBudgetOpen, addBudget, continueBudget, modelRuntime, inferenceMetrics, context, outputs, runtimePermission, messages: shownMessages, tools, workflowRuns, history, streaming, restoring, activity, approval, approvalQueue, sessionRunning, sessionId, send, steer, resendPending, draft, abort, clear, newSession, resumeSession, respond, contextFull, answerContextFull, backgroundTasks, stopTask, handoffFrom, takeover, handoffNotices, dismissHandoffNotice, sendBlockedReason }
+  return { networkIncident, networkOpen, setNetworkOpen, decideNetwork, budget, budgetOpen, setBudgetOpen, addBudget, continueBudget, modelRuntime, inferenceMetrics, generationSpeed, context, outputs, runtimePermission, messages: shownMessages, tools, workflowRuns, history, streaming, restoring, activity, approval, approvalQueue, sessionRunning, sessionId, send, steer, resendPending, draft, abort, clear, newSession, resumeSession, respond, contextFull, answerContextFull, backgroundTasks, stopTask, handoffFrom, takeover, handoffNotices, dismissHandoffNotice, sendBlockedReason }
 }

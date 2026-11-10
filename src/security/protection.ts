@@ -29,7 +29,7 @@ export function assertIncidentLinks(): void {
  * `kill` (default): a denied connection also SIGKILLs the offender. That action makes macOS report
  * nearly every denial: plain denials of nonblocking sockets (Node, Bun) went unreported in 8 of 50
  * round-10b samples, so an attempt would be blocked but not seen, and the chain not cut. With it, about
- * 1 attempt in 300 was still killed but never logged (measured 2026-11-05); its crash report then trips
+ * 1 attempt in 300 was still killed but never logged; its crash report then trips
  * the incident (killReports.ts).
  * The price is a macOS crash report per real attempt (and Apple's "quit unexpectedly" dialog for an
  * app-bundled interpreter such as Xcode's python3). The monitor's own curl probe uses a blocking
@@ -48,7 +48,7 @@ export function toolProfile(tag: string, network: boolean, forbiddenPorts: numbe
     lines.push(`(deny network-outbound${stop} (with message "${tag} egress"))`)
     // Darwin 24.6 also runs this check on link(2), against the file being linked: it leaves no record and
     // does not stop the link, but the action above still fires, so every hard link (git add, git commit,
-    // ln, tar) died (measured 2026-11-07). A socket is always a socket vnode, also through a symbolic link,
+    // ln, tar) died. A socket is always a socket vnode, also through a symbolic link,
     // and these types cannot take a connection. A hard link to a socket file still dies; nothing else does.
     lines.push('(allow network-outbound (vnode-type REGULAR-FILE SYMLINK FIFO))')
     // getaddrinfo sorts numeric results through this read-only kernel control, also for 127.0.0.1. No packet.
@@ -92,7 +92,7 @@ const regexPath = (path: string) => path.replace(/[^A-Za-z0-9/_ -]/g, c => c ===
 function nextSessionRules(gcode: string): string[] {
   const home = regexPath(gcode), rules: string[] = []
   for (const name of ['settings.json', 'settings.json.bak', 'permissions.json', 'mcp.json']) {
-    // Seatbelt ignores letter case here (measured 2026-11-07): ~/.gcode/SETTINGS.JSON is refused too, also when no such file exists yet.
+    // Seatbelt ignores letter case here: ~/.gcode/SETTINGS.JSON is refused too, also when no such file exists yet.
     rules.push(`file-write* file-link (literal ${JSON.stringify(join(gcode, name))})`)
     try { const real = realpathSync(join(gcode, name)); if (real !== join(gcode, name)) rules.push(`file-write* file-link (literal ${JSON.stringify(real)})`) } catch { /* Not there yet. */ }
   }
@@ -109,7 +109,7 @@ function nextSessionRules(gcode: string): string[] {
  * kernel rule closes WebRTC, WebTransport and anything else that does not pass G-Code's page route.
  * Chromium's own sandbox cannot apply inside this one (macOS refuses a second sandbox), so it is off.
  * Chromium's network process tests reachability with a UDP connect to port 443 by itself, which sends no
- * packet (measured 2026-11-07): that one form is denied under a message the monitor does not count.
+ * packet: that one form is denied under a message the monitor does not count.
  */
 export const BROWSER_PROBE_MESSAGE = 'browser-probe'
 export function browserProfile(tag: string, forbiddenPorts: number[]): string {

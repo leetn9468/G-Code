@@ -602,7 +602,7 @@ export async function startREPL(options: REPLOptions): Promise<void> {
   for (const signal of SHUTDOWN_SIGNALS) process.on(signal, closeForSignal)
   // An end of input nobody announced waits briefly before it ends the turn as a closed session: a
   // signal sent with it says why instead. Bun can run readline's 'close' before a signal that came
-  // first (d6, round 20: SIGINT then end of input read as SIGHUP; 23 of 40 in a probe, the signal
+  // first (SIGINT then end of input could read as SIGHUP: the signal can come
   // 0.3-0.5 ms after the close, always before a setImmediate queued by the close).
   let unannouncedEnd: ReturnType<typeof setTimeout> | undefined
   const closed = new Promise<void>((resolve) => {

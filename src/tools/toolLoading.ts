@@ -21,8 +21,8 @@ export const TOOL_LOADING_ENV = 'GCODE_TOOL_LOADING'
 const MODES: readonly ToolLoading[] = ['auto', 'all', 'deferred']
 
 /**
- * Sent in full in every mode: what coding work uses in nearly every session (tool usage across the
- * 58-scenario gate runs), the two tools that reach the rest, and Skill, whose description is the
+ * Sent in full in every mode: what coding work uses in nearly every session, the two tools that reach
+ * the rest, and Skill, whose description is the
  * skill catalog (a one-line summary of it would hide every skill name).
  */
 export const CORE_TOOLS: ReadonlySet<string> = new Set([

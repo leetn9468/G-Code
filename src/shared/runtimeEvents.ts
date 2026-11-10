@@ -22,7 +22,13 @@ export interface ModelRuntimeStatus {
   requestedContext?: number; appliedContext?: number; contextReason?: string
   message: string; elapsedMs?: number; deadlineMs?: number; timestamp?: number
 }
-export interface InferenceMetrics { processing: boolean; promptTokens?: number; generatedTokens?: number; contextSize?: number; timestamp?: number }
+/**
+ * The local model server's counters, read by the desktop app every 0.5 s while a model is loaded.
+ * `tokensPerSecond`: this reply's generation speed, the tokens decoded since the first reading that saw
+ * it decoding over the time between those readings (prompt processing left out); absent until two
+ * readings 0.4 s or more apart have seen it decode.
+ */
+export interface InferenceMetrics { processing: boolean; promptTokens?: number; generatedTokens?: number; contextSize?: number; tokensPerSecond?: number; timestamp?: number }
 /**
  * The engine discarded a reply that failed mid-stream and requests it again. A client drops the
  * last `text` characters of the turn's shown text and `thinking` characters of its shown thinking,

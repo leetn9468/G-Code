@@ -103,11 +103,11 @@ const elapsedLabel = (ms: number) => {
  * The reply before a handoff that reads the latest results (see readBeforeHandoff): the smallest
  * output cap worth sending, and the room its note takes. Its cap is what an ordinary reply at the
  * session's effort sends (within the room left), so its reasoning has the same room (a fixed 4,096
- * cut c1's note mid-sentence after 2,726 tokens of reasoning at High, round 12).
+ * cut a note mid-sentence after 2,726 tokens of reasoning at High).
  */
 const HANDOFF_READ_MIN_TOKENS = 1024
 const HANDOFF_READ_NOTE_TOKENS = 256
-/** Room kept when the input size is only estimated (measured 2.3% low in round 20's c4), so the reply before a handoff still fits. */
+/** Room kept when the input size is only estimated (it can come out 2.3% low), so the reply before a handoff still fits. */
 const HANDOFF_READ_ESTIMATE_MARGIN = 0.05
 const HANDOFF_READ_NOTE = `[${HANDOFF_READ}, so this session hands off to a new session after this reply. Read the tool results above and write down what they show that the remaining work needs: the facts, with paths and line ranges, and what is still missing. Do not call any tools in this reply.]`
 /** A managed local model's check: the reply room it keeps (its max_tokens is capped separately) and its safety margin. */
@@ -571,7 +571,7 @@ export class QueryEngine {
    * them and note what they show; the handoff then starts from what it has seen. Skipped when that
    * reply cannot fit in the window (`room`: tokens left after this request's input). A handoff
    * written from unseen results listed them as done, or the next session distrusted its notes and
-   * read again (c1 and c4, rounds 10b and 11).
+   * read again.
    */
   private async readBeforeHandoff(systemPrompt: string, messages: LLMMessage[], toolDefs: Array<{ name: string; description: string; input_schema: Record<string, unknown> }>, room: number, inputTokens: number): Promise<void> {
     const last = messages.at(-1)
@@ -803,8 +803,8 @@ export class QueryEngine {
       // The prompt carries no tool catalog (each description goes once, in the tool definitions).
       if (!freeze && snapshot !== saved) return buildStableSystemPrompt([], snapshot.memory, snapshot.cwd, snapshot.permissionMode, snapshot.nodeEnvironment ?? this.nodeInfo, snapshot.learned)
       const available = new Set(this.tools.map(tool => tool.name))
-      // A saved prompt is kept for the same kind of runtime, tools and tool loading: one saved before
-      // round 13 may still list the tools, which a cloud session keeps (its bytes are cached) and a
+      // A saved prompt is kept for the same kind of runtime, tools and tool loading: one saved by an older
+      // version may still list the tools, which a cloud session keeps (its bytes are cached) and a
       // local one cannot spare. A deferred session keeps every tool it has now that it does not send in
       // full: deferred tools may come and go (an MCP server) without changing the sent definitions.
       const compatible = snapshot.local === local && (snapshot.tools?.some(tool => tool.name === DEFERRED_CALL) ?? false) === defer

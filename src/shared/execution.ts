@@ -25,7 +25,7 @@ export interface ContextFullInfo {
  * Leads every continuation message (and, as HANDOFF_FILE_RULE, every saved handoff file): the
  * session that takes over reads the whole handoff before its first step. A model that acted on the
  * first lines re-read the files the notes had already recorded, filled its context again and
- * handed off again without progress (Haiku, c1 and c4, Round 10b).
+ * handed off again without progress.
  */
 export const HANDOFF_BINDING_RULE = 'Binding rule: read this whole message, the handoff included, to the end before you call any tool or take any step. Until you have read all of it, do no work on this handoff: no reads, no commands, no edits.'
 export const HANDOFF_FILE_RULE = 'Binding rule: read this whole document to the end before you call any tool or take any step. Until you have read all of it, do no work on this handoff: no reads, no commands, no edits.'

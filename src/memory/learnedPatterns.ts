@@ -101,9 +101,12 @@ const SECRET = new RegExp([
 /** What this process learned and has not saved yet, per project. */
 const pending = new Map<string, Map<string, { successes: number; broken: number; runs: number; sessions: string[]; first: number; at: number }>>()
 
-/** A part without its output redirections (`2>&1`, `>/dev/null`): they do not change what it checks. */
-const unredirected = (part: string) => part
-  .replace(/("(?:[^"\\]|\\.)*"|'[^']*')|\s+(?:&>|\d?>>?)\s*(?:&\d|\/dev\/null)/g, (match, quoted?: string) => quoted ?? '').trim()
+/** Where an output redirection sends the output: a descriptor (`&1`, `&-`) or a file, its name quoted or escaped as the shell allows. */
+const REDIRECT_TARGET = String.raw`(?:&(?:\d+|-)|&?(?:"(?:[^"\\]|\\.)*"|'[^']*'|\$\([^()]*\)|` + '`[^`]*`' + String.raw`|\\.|[^\s"'\\;&|<>()` + '`' + String.raw`])+)`
+/** Quoted text, kept as it is, or an output redirection after a space: `2>&1`, `>/dev/null`, `> test.log`, `2>> errors.txt`, `&> all.log`, `>| out`. */
+const OUTPUT_REDIRECTION = new RegExp(String.raw`("(?:[^"\\]|\\.)*"|'[^']*')|\s+(?:&>>?|\d*>>?\|?)\s*${REDIRECT_TARGET}`, 'g')
+/** A part without its output redirections: they say where its output goes, not what it checks, so `npm test > a.log` is the pattern `npm test`. Input (`<`) is kept. */
+const unredirected = (part: string) => part.replace(OUTPUT_REDIRECTION, (match, quoted?: string) => quoted ?? '').trim()
 
 type VerificationStatus = 'exit' | 'success-only' | 'unknown'
 
@@ -215,7 +218,8 @@ export function shellParts(command: string): { line: string; parts: Array<[numbe
     const operator = depth ? undefined
       : source.startsWith('&&', i) || source.startsWith('||', i) ? source.slice(i, i + 2)
       : source.startsWith('|&', i) ? '|&'
-      : c === ';' || c === '|' ? c
+      // In `>|` (write even with noclobber set) the `|` belongs to the redirection, not a pipe.
+      : c === ';' || (c === '|' && source[i - 1] !== '>') ? c
       // `&` alone sends the part to the background; in `2>&1` and `&>` it belongs to a redirection.
       : c === '&' && source[i - 1] !== '>' && source[i + 1] !== '>' ? '&' : undefined
     if (!operator) { line += c; continue }
@@ -267,9 +271,30 @@ function loadPatterns(path: string): LearnedPattern[] | undefined {
   try { text = readFileSync(path, 'utf8') } catch (error) { return (error as NodeJS.ErrnoException).code === 'ENOENT' ? [] : undefined }
   try {
     const file = JSON.parse(text) as Partial<PatternFile>
-    return Array.isArray(file.patterns) ? file.patterns.filter((p): p is LearnedPattern => !!p && typeof p.key === 'string' && usableKey(p.key) && p.kind === 'verification'
-      && [p.successes, p.broken, p.runs, p.firstSeen, p.lastSeen].every(n => Number.isFinite(n)) && Array.isArray(p.sessions)) : []
+    return Array.isArray(file.patterns) ? inNormalForm(file.patterns.filter((p): p is LearnedPattern => !!p && typeof p.key === 'string' && usableKey(p.key) && p.kind === 'verification'
+      && [p.successes, p.broken, p.runs, p.firstSeen, p.lastSeen].every(n => Number.isFinite(n)) && Array.isArray(p.sessions))) : []
   } catch { return [] }
+}
+
+/**
+ * Saved patterns under the key this version gives them. In earlier versions a redirection to a file stayed in the key
+ * (`npm test > /tmp/a.log`), so one check could be saved under many keys: those now merge into one. A key this
+ * version would not learn at all is left out, as it would be if it were recorded now.
+ */
+function inNormalForm(patterns: LearnedPattern[]): LearnedPattern[] {
+  const merged = new Map<string, LearnedPattern>()
+  for (const pattern of patterns) {
+    const key = verification(pattern.key)?.key
+    if (!key || !usableKey(key)) continue
+    const same = merged.get(key)
+    if (!same) { merged.set(key, { ...pattern, key }); continue }
+    // Sessions stay newest last: the pattern seen later gives the end of the list.
+    const [older, newer] = pattern.lastSeen >= same.lastSeen ? [same.sessions, pattern.sessions] : [pattern.sessions, same.sessions]
+    same.sessions = [...older.filter(id => !newer.includes(id)), ...newer].slice(-SESSIONS_KEPT)
+    same.successes += pattern.successes; same.broken += pattern.broken; same.runs += pattern.runs
+    same.firstSeen = Math.min(same.firstSeen, pattern.firstSeen); same.lastSeen = Math.max(same.lastSeen, pattern.lastSeen)
+  }
+  return [...merged.values()]
 }
 
 /** The project's learned patterns as saved (an unreadable or foreign file reads as none). */

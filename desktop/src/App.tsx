@@ -626,6 +626,8 @@ export function App() {
         turnCount={view.history.length}
         toolCallCount={view.tools.length}
         errorCount={view.messages.filter((message) => message.role === 'error').length}
+        // The live session's local model only: not beside another chat opened for reading, never for a cloud model.
+        generationSpeed={!browsing && currentProvider === 'local' ? chat.generationSpeed : null}
         keepAwakeControl={<KeepAwakeControl value={keepAwake} active={awake} onChange={value => void update(previous => ({ ...previous, execution: { ...previous.execution, keepAwake: value } }))}/>}
       />
 
