@@ -1,0 +1,519 @@
+/* G-Code Desktop — Models & providers dialog, provider detail, local pickers.
+   Shared form wells (.gc-input-well, .gc-select-well, .gc-disclosure) live in
+   styles/settings.css so Settings, MCP and this dialog share one recipe. */
+
+/* Header and footer use the shared dialog parts (.gc-modal-header, -icon,
+   -heading, -close, -footer) in styles/overlays.css. */
+
+/* ---- Two-pane workspace -------------------------------------------------- */
+/* A fixed height keeps the dialog still while the detail pane changes. */
+.gc-provider-workspace {
+  display: grid;
+  grid-template-columns: 216px minmax(0, 1fr);
+  flex: 1 1 auto;
+  height: 520px;
+  min-height: 0;
+  overflow: hidden;
+  border-top: 1px solid var(--hairline);
+}
+
+/* Left: provider list on a slightly darker fill. */
+.gc-provider-navigation {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+  padding: 12px 10px 14px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: color-mix(in srgb, var(--ink-shade) 16%, transparent);
+  border-right: 1px solid var(--hairline);
+}
+.gc-provider-nav-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 28px;
+  padding: 0 2px 0 10px;
+  color: var(--text-secondary);
+  font-size: var(--fs-ui);
+  font-weight: 600;
+}
+.gc-provider-refresh { width: 28px; height: 28px; }
+.gc-btn-icon.gc-provider-refresh:disabled { cursor: wait; opacity: .75; }
+.gc-provider-refresh .is-checking { animation: gc-spin 1s linear infinite; }
+
+.gc-provider-group { display: flex; flex-direction: column; gap: 2px; }
+.gc-provider-group h3 {
+  margin: 0;
+  padding: 0 10px 6px;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  font-weight: 560;
+  line-height: 18px;
+}
+
+/* Rows: Linear-style highlight — instant in, fades out over 150ms. The
+   selection pill is a sibling layer that glides between rows (layoutId). */
+.gc-provider-nav-item {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  width: 100%;
+  min-height: 38px;
+  border-radius: var(--radius-lg);
+  color: var(--text-secondary);
+  text-align: left;
+  transition: background-color var(--dur-hover) var(--ease-hover), color var(--dur-hover) var(--ease-hover);
+}
+@media (hover: hover) and (pointer: fine) {
+  .gc-provider-nav-item:hover:not(.selected) {
+    color: var(--text-primary);
+    background: var(--fill-hover);
+    transition-duration: 0ms;
+  }
+}
+.gc-provider-nav-item.selected { color: var(--text-primary); }
+.gc-provider-nav-item:focus-visible { border-radius: var(--radius-lg); outline-offset: 0; }
+.gc-provider-nav-pill {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: var(--fill-selected);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  pointer-events: none;
+}
+.gc-provider-nav-pill::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: var(--accent);
+}
+/* Press feedback scales the content, not the row, so the pill measures true. */
+.gc-provider-nav-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px 7px 12px;
+  transition: transform var(--dur-instant) var(--ease-out);
+}
+.gc-provider-nav-item:active .gc-provider-nav-content { transform: scale(.98); }
+.gc-provider-nav-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-ui);
+  font-weight: 560;
+  line-height: 20px;
+}
+.gc-provider-current-check { color: var(--accent); flex-shrink: 0; }
+
+/* Right: detail pane (keyed per provider; cross-fades on change). */
+.gc-provider-detail {
+  min-width: 0;
+  min-height: 0;
+  padding: 22px 26px 26px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* ---- Provider detail ----------------------------------------------------- */
+.gc-provider-configuration { display: flex; flex-direction: column; min-width: 0; }
+.gc-provider-detail-heading { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.gc-provider-detail-mark {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: var(--radius-xl);
+  background: var(--fill-hover);
+  box-shadow: inset 0 0 0 1px var(--hairline), var(--highlight-top);
+}
+.gc-provider-detail-title { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; min-width: 0; }
+.gc-provider-detail-title h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--fs-heading);
+  font-weight: 620;
+  line-height: 22px;
+  letter-spacing: -0.012em;
+  text-wrap: balance;
+}
+
+/* Status pill: dot + label. In use, configured and a reachable server read
+   success green; setup needed reads muted; errors read amber. */
+.gc-provider-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 9px 0 8px;
+  border-radius: var(--radius-full);
+  color: var(--text-muted);
+  background: var(--fill-hover);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  font-size: var(--fs-micro);
+  font-weight: 560;
+  line-height: 1;
+  white-space: nowrap;
+}
+.gc-provider-status-dot {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.25px currentColor;
+}
+.gc-provider-status.current,
+.gc-provider-status.configured { color: var(--success-text); background: var(--success-subtle); box-shadow: none; }
+.gc-provider-status.running { color: var(--success-text); background: var(--success-subtle); box-shadow: none; }
+.gc-provider-status.current .gc-provider-status-dot,
+.gc-provider-status.configured .gc-provider-status-dot,
+.gc-provider-status.running .gc-provider-status-dot { background: currentColor; box-shadow: none; }
+.gc-provider-status.error { color: var(--warning); background: var(--warning-subtle); box-shadow: none; }
+.gc-provider-status.error .gc-provider-status-dot { background: currentColor; box-shadow: none; }
+
+.gc-provider-description {
+  max-width: 60ch;
+  margin: 16px 0 4px;
+  color: var(--text-secondary);
+  font-size: var(--fs-ui);
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+
+/* Fields: label, inset well, quiet hint. */
+.gc-provider-field { display: flex; flex-direction: column; gap: 8px; min-width: 0; margin-top: 20px; }
+.gc-provider-field > span,
+.gc-provider-field-title {
+  color: var(--text-secondary);
+  font-size: var(--fs-ui);
+  font-weight: 560;
+  line-height: 20px;
+}
+.gc-provider-field .gc-input-well { height: 40px; }
+.gc-provider-field small {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  line-height: 18px;
+}
+.gc-provider-field .has-credential { color: var(--text-secondary); }
+.gc-provider-field .has-credential svg { color: var(--success); flex-shrink: 0; }
+
+/* Model: free-text well + "Refresh models", then the fetched list (ModelPicker). */
+.gc-provider-model-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.gc-provider-model-row .gc-input-well { flex: 1; }
+.gc-provider-model-row .gc-btn.is-field { min-height: 40px; flex-shrink: 0; }
+.gc-provider-models-refresh:disabled { cursor: wait; }
+.gc-provider-models-refresh .is-checking { animation: gc-spin 1s linear infinite; }
+.gc-provider-field .gc-provider-models-status { font-variant-numeric: tabular-nums; }
+.gc-provider-models-error {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--radius-lg);
+  color: var(--error);
+  background: var(--error-subtle);
+  font-size: var(--fs-meta);
+  line-height: 18px;
+  overflow-wrap: anywhere;
+}
+
+/* API key: the show/hide toggle (.gc-secret-toggle, settings.css) sits inside the well. */
+.gc-provider-secret { position: relative; display: flex; align-items: center; min-width: 0; }
+.gc-provider-secret .gc-input-well { padding-right: 44px; }
+
+.gc-provider-save-error {
+  margin: 10px 0 0;
+  padding: 9px 12px;
+  border-radius: var(--radius-lg);
+  color: var(--error);
+  background: var(--error-subtle);
+  font-size: var(--fs-meta);
+  line-height: 18px;
+  overflow-wrap: anywhere;
+}
+.gc-provider-environment { margin-top: 18px; }
+.gc-provider-environment code {
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+  color: var(--text-primary);
+  background: var(--fill-hover);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  font: 500 var(--fs-meta)/1.5 var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.gc-provider-host {
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid var(--hairline);
+}
+
+.gc-provider-check-row { display: flex; align-items: center; gap: 12px; margin-top: 24px; }
+/* .gc-spinner (global.css) loads after this file: two classes to win. */
+.gc-spinner.gc-provider-check-spinner { width: 11px; height: 11px; }
+.gc-provider-test-result {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-lg);
+  color: var(--text-secondary);
+  background: var(--fill-hover);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  font-size: var(--fs-meta);
+  line-height: 1.55;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+  animation: gc-fade-up 200ms var(--ease-out) both;
+}
+.gc-provider-test-result > svg { flex-shrink: 0; margin-top: 2px; }
+.gc-provider-test-result > span { min-width: 0; }
+.gc-provider-test-result.is-success > svg { color: var(--success); }
+.gc-provider-test-result.is-error { color: var(--error); background: var(--error-subtle); box-shadow: none; }
+/* Small buttons (.gc-btn-sm) share one rule in styles/base.css. */
+
+/* ---- Model list (ModelPicker.tsx) ---------------------------------------
+   A search well over an inset list. The active row (keyboard or hover) gets
+   the menu highlight; the model in use carries the azure check. */
+.gc-model-list {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-radius: var(--radius-xl);
+  background: var(--surface-inset);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+  overflow: hidden;
+}
+.gc-model-list[data-disabled] { opacity: var(--disabled-opacity); }
+.gc-model-list-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 12px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--hairline);
+}
+.gc-model-list-search > svg { flex-shrink: 0; }
+.gc-model-list-search > input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: none;
+  color: var(--text-primary);
+  background: transparent;
+  font: 450 var(--fs-ui)/20px var(--font-ui);
+}
+.gc-model-list-search > input::placeholder { color: var(--text-muted); opacity: 1; }
+.gc-model-list-search > input:focus-visible { outline: none; }
+/* The list sits in the dialog's own focus ring: show focus on the whole well. */
+.gc-model-list:has(.gc-model-list-search > input:focus-visible) {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent), 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.gc-model-list-count { flex-shrink: 0; color: var(--text-faint); font-size: var(--fs-meta); font-variant-numeric: tabular-nums; }
+.gc-model-list-options {
+  position: relative; /* offsetTop of the rows is measured against the list */
+  max-height: 224px;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+}
+.gc-model-list-options:empty { display: none; }
+.gc-model-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 5px 10px 5px 8px;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: background-color var(--dur-hover) var(--ease-hover), color var(--dur-hover) var(--ease-hover);
+}
+.gc-model-option[data-active] { color: var(--text-primary); background: var(--fill-pressed); transition-duration: 0ms; }
+.gc-model-option.is-current { color: var(--text-primary); }
+.gc-model-option-check { display: grid; place-items: center; width: 16px; height: 16px; flex-shrink: 0; color: var(--accent); }
+.gc-model-option-text { display: flex; align-items: baseline; gap: 8px; min-width: 0; flex: 1; }
+.gc-model-option-name {
+  flex-shrink: 0;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-ui);
+  font-weight: 520;
+  line-height: 20px;
+}
+.gc-model-option-id {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font: var(--fs-meta)/18px var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.gc-model-option[data-active] .gc-model-option-id { color: var(--text-secondary); }
+.gc-model-list-empty {
+  margin: 0;
+  padding: 12px 14px;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  line-height: 18px;
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+@media (hover: none) {
+  .gc-model-option { transition: none; }
+}
+
+/* ---- Footer (.gc-modal-footer) ------------------------------------------- */
+.gc-provider-footer p {
+  margin: 0;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  line-height: 18px;
+  text-wrap: pretty;
+}
+.gc-provider-cta { flex-shrink: 0; }
+.gc-provider-cta svg { transition: transform 150ms var(--ease-out); }
+@media (hover: hover) and (pointer: fine) {
+  .gc-provider-cta:hover:not(:disabled) svg { transform: translateX(2px); }
+}
+
+/* ---- Switch confirmation ------------------------------------------------- */
+.gc-provider-confirm { padding: 26px 26px 22px; animation: gc-fade-up 200ms var(--ease-out) both; }
+.gc-provider-confirm-mark {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 18px;
+  border-radius: var(--radius-xl);
+  background: var(--fill-hover);
+  box-shadow: inset 0 0 0 1px var(--hairline), var(--highlight-top);
+}
+/* Title: .gc-modal-heading h2 (overlays.css). */
+.gc-provider-confirm > p {
+  margin: 8px 0 20px;
+  color: var(--text-secondary);
+  font-size: var(--fs-ui);
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+/* Route chip: A → B. */
+.gc-provider-confirm-route {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius-xl);
+  background: var(--surface-inset);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  font-size: var(--fs-ui);
+  line-height: 20px;
+}
+.gc-provider-confirm-route > span,
+.gc-provider-confirm-route > strong { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.gc-provider-confirm-route > span { color: var(--text-muted); font-weight: 500; }
+.gc-provider-confirm-route > strong { color: var(--text-primary); font-weight: 600; }
+.gc-provider-confirm-arrow { color: var(--text-faint); }
+.gc-provider-confirm-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 24px; }
+
+/* ---- Local GGUF picker --------------------------------------------------- */
+.gc-local-model-control, .gc-local-model-select { display: flex; flex-direction: column; gap: 8px; width: 100%; min-width: 0; }
+.gc-provider-configuration > .gc-local-model-control { margin-top: 20px; }
+.gc-local-model-file {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 7px 7px 7px 8px;
+  border-radius: var(--radius-xl);
+  background: var(--surface-inset);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
+.gc-local-model-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  background: var(--fill-hover);
+}
+.gc-local-model-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+  font: 500 var(--fs-ui)/20px var(--font-mono);
+}
+.gc-local-model-name.is-empty { color: var(--text-muted); font-weight: 450; }
+.gc-local-model-file .gc-btn { flex-shrink: 0; }
+
+.gc-local-model-status {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+.gc-local-model-status.warning { color: var(--warning); }
+.gc-spinner.gc-local-model-spinner { width: 10px; height: 10px; align-self: center; }
+
+.gc-local-runtime {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--hairline);
+}
+.gc-local-runtime-path {
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  background: var(--surface-inset);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  font: var(--fs-meta)/1.6 var(--font-mono);
+  overflow-wrap: anywhere;
+}
+.gc-local-runtime-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+
+@media (max-width: 640px) {
+  .gc-provider-workspace { grid-template-columns: 172px minmax(0, 1fr); }
+  .gc-provider-detail { padding: 20px 16px; }
+  .gc-local-model-file { flex-wrap: wrap; }
+  .gc-local-model-name { min-width: 70%; }
+}

@@ -1,0 +1,163 @@
+/* G-Code Desktop — right side panel (Terminal, Outputs, environment).
+   A second inset panel beside the conversation on the same canvas gutter:
+   the conversation panel's surface, radius and elevation. Its header row sits
+   on the traffic-light axis like the conversation header. */
+
+.gc-side-slot {
+  /* The conversation keeps at least --chat-min; the panel at least --side-min. */
+  --chat-min: 440px;
+  --side-min: 300px;
+  --side-room: calc(100vw - var(--sidebar-width) - var(--panel-gap) * 2 - var(--chat-min));
+  --side-shown: max(var(--side-min), min(var(--side-panel-width), var(--side-room)));
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  width: var(--side-shown);
+  min-height: 0;
+  margin-left: var(--panel-gap);
+  visibility: visible;
+}
+.gc-workbench.is-sidebar-hidden .gc-side-slot { --side-room: calc(100vw - var(--panel-gap) * 3 - var(--chat-min)); }
+/** Reserve the final width once. Animating width reflows a long conversation
+    on every frame; the panel itself slides on the compositor instead. */
+.gc-side-slot.is-closed {
+  width: 0;
+  margin-left: 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.gc-workbench.is-side-animating .gc-side-slot {
+  transition: opacity var(--dur-base) var(--ease-out), visibility 0s linear 0s;
+}
+.gc-workbench.is-side-animating .gc-side-slot.is-closed {
+  transition: opacity 160ms var(--ease-out), visibility 0s linear var(--dur-slow);
+}
+.gc-workbench.is-side-animating .gc-side-panel {
+  transition: transform var(--dur-slow) var(--ease-drawer);
+}
+.gc-side-slot.is-closed .gc-side-panel { transform: translateX(calc(100% + var(--panel-gap))); }
+.gc-side-slot.is-resizing,
+.gc-workbench.is-side-animating .gc-side-slot.is-resizing { transition: none; user-select: none; -webkit-user-select: none; }
+.gc-side-slot.is-resizing .gc-side-panel { transition: none; }
+
+/** Keep the closing panel at the right edge after its slot releases the space. */
+.gc-side-clip {
+  position: absolute;
+  inset: 0 0 0 auto;
+  display: flex;
+  width: var(--side-shown);
+  min-width: 0;
+  min-height: 0;
+}
+.gc-side-panel {
+  flex: 0 0 var(--side-shown);
+  width: var(--side-shown);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--panel-radius);
+  background: var(--background);
+  box-shadow: var(--shadow-panel), var(--highlight-top);
+  overflow: hidden;
+}
+
+/* Left-edge resize grip, in the gutter between the two panels. Starts below
+   the chrome row, where the window drag region lives. */
+.gc-side-resize {
+  position: absolute;
+  z-index: 2;
+  top: calc(var(--titlebar-height) - var(--panel-gap));
+  bottom: 6px;
+  left: calc(var(--panel-gap) / -2 - 6px);
+  width: 12px;
+  cursor: col-resize;
+  touch-action: none;
+  outline: none;
+}
+.gc-side-resize::after {
+  content: '';
+  position: absolute;
+  top: 18%;
+  bottom: 18%;
+  left: 5px;
+  width: 2px;
+  border-radius: 2px;
+  background: transparent;
+  transition: background var(--dur-base) var(--ease-out), top var(--dur-slow) var(--ease-out), bottom var(--dur-slow) var(--ease-out);
+}
+.gc-side-resize:hover::after,
+.gc-side-resize:focus-visible::after,
+.gc-side-slot.is-resizing .gc-side-resize::after { top: 0; bottom: 0; background: var(--accent); }
+
+/* ---- Views ------------------------------------------------------------- */
+.gc-side-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.gc-side-view[hidden] { display: none; }
+/* Focused programmatically when opened; the controls inside show the rings. */
+.gc-side-view:focus { outline: none; }
+
+/* One row on the chrome axis, the same height as the conversation header. */
+.gc-side-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  height: var(--chat-header-height);
+  padding: var(--chat-header-inset) 8px 0 14px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.gc-side-title {
+  flex: 1;
+  min-width: 0;
+  height: var(--chrome-row);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--fs-ui);
+  font-weight: 560;
+  white-space: nowrap;
+}
+.gc-side-title > svg { flex-shrink: 0; color: var(--text-muted); }
+.gc-side-title > span:first-of-type { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.gc-side-icon {
+  width: var(--chrome-row);
+  height: var(--chrome-row);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  transition: background-color var(--dur-hover) var(--ease-hover), color var(--dur-hover) var(--ease-hover), opacity var(--dur-hover) var(--ease-hover), transform var(--dur-instant) var(--ease-out);
+}
+.gc-side-icon:active:not([aria-disabled="true"]) { transform: scale(.96); background: var(--fill-pressed); }
+.gc-side-icon[aria-disabled="true"] { opacity: var(--disabled-opacity); cursor: not-allowed; }
+.gc-side-icon:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+@media (hover: hover) and (pointer: fine) {
+  .gc-side-icon:hover { color: var(--text-primary); background: var(--fill-hover); transition-duration: 0ms, 0ms, 0ms, var(--dur-instant); }
+}
+
+/* Scrolling body below the header (environment view). */
+.gc-side-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.gc-side-lede {
+  margin: 2px 14px 12px;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  line-height: 1.55;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gc-side-slot.is-closed .gc-side-panel { transform: none; }
+}

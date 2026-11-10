@@ -1,0 +1,72 @@
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: ['./index.html', './src/**/*.{ts,tsx}'],
+  darkMode: 'class', // permanent dark; we set 'dark' on <html> at boot
+  theme: {
+    extend: {
+      colors: {
+        background: 'var(--background)',
+        surface: 'var(--surface)',
+        'surface-elevated': 'var(--surface-elevated)',
+        'surface-inset': 'var(--surface-inset)',
+        border: 'var(--border)',
+        'border-strong': 'var(--border-strong)',
+        'text-primary': 'var(--text-primary)',
+        'text-secondary': 'var(--text-secondary)',
+        'text-muted': 'var(--text-muted)',
+        'text-inverse': 'var(--text-inverse)',
+        'teal-accent': 'var(--teal-accent)',
+        'teal-hover': 'var(--teal-hover)',
+        'teal-pressed': 'var(--teal-pressed)',
+        'teal-muted': 'var(--teal-muted)',
+        'teal-subtle': 'var(--teal-subtle)',
+        success: 'var(--success)',
+        'success-subtle': 'var(--success-subtle)',
+        warning: 'var(--warning)',
+        'warning-subtle': 'var(--warning-subtle)',
+        error: 'var(--error)',
+        'error-subtle': 'var(--error-subtle)',
+        info: 'var(--info)',
+      },
+      fontFamily: {
+        ui: ['var(--font-ui)'],
+        mono: ['var(--font-mono)'],
+      },
+      fontSize: {
+        // The handover's px scale (§4). We disable rem-scaling and stick to px.
+        pill: ['9px', { lineHeight: '1', letterSpacing: '0.08em' }],
+        kbd: ['10px', { lineHeight: '1' }],
+        meta: ['11px', { lineHeight: '1.4' }],
+        mono: ['11.5px', { lineHeight: '1.65' }],
+        body: ['13px', { lineHeight: '1.5' }],
+        chat: ['14px', { lineHeight: '1.6' }],
+        heading: ['16px', { lineHeight: '1.35' }],
+        'mono-lg': ['16px', { lineHeight: '1.2' }],
+        title: ['20px', { lineHeight: '1.25', letterSpacing: '-0.005em' }],
+        'mono-xl': ['22px', { lineHeight: '1.1', letterSpacing: '-0.01em' }],
+      },
+      borderRadius: {
+        'sm-px': '3px',
+        'md-px': '5px',
+        'lg-px': '6px',
+        'xl-px': '7px',
+        card: '8px',
+        bubble: '10px',
+        modal: '12px',
+      },
+      boxShadow: {
+        modal: 'var(--shadow-modal)',
+        focus: 'var(--focus-ring)',
+        'glow-teal': 'var(--glow-teal)',
+        'glow-success': 'var(--glow-success)',
+      },
+      animation: {
+        'gc-pulse': 'gc-pulse 1.4s ease-out infinite',
+        'gc-caret': 'gc-caret 1.05s steps(1) infinite',
+        'gc-prog': 'gc-prog 1.4s ease-in-out infinite',
+        'gc-spin': 'gc-spin 0.8s linear infinite',
+      },
+    },
+  },
+  plugins: [],
+}

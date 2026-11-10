@@ -1,0 +1,16 @@
+/* G-Code Desktop — global entry. Cascade order, lowest to highest:
+   tokens → Tailwind preflight → base reset + shared primitives → area styles.
+   Component-imported stylesheets (sidebar, search, providers, statusbar, …) load
+   after this file because main.tsx imports it before App, so area rules win
+   ties against primitives. */
+@import './tokens.css';
+@import 'tailwindcss/base';
+@import './base.css';
+@import './shell.css';
+@import './chat.css';
+@import './composer.css';
+@import './activity.css';
+@import './overlays.css';
+@import './settings.css';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';

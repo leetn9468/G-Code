@@ -1,0 +1,377 @@
+/* G-Code Desktop — the side panel's Browser view.
+   Toolbar (back, forward, reload, address) under the side header; a strip
+   with the viewport presets, dev-server chips and the page-error count while
+   a page is loaded; the page in an inset stage. Device presets centre a
+   fixed-width frame on the stage and scale it down to fit. */
+
+.gc-browser {
+  /* A web page's default canvas (most pages assume white behind them). */
+  --browser-canvas: #FFFFFF;
+}
+
+.gc-browser-page-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-muted);
+  font-weight: 450;
+}
+
+/* ---- Toolbar ------------------------------------------------------------ */
+.gc-browser-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 12px 8px 8px;
+}
+.gc-browser-address { flex: 1; min-width: 0; margin-left: 4px; }
+.gc-browser-address .gc-input-well {
+  height: 30px;
+  padding: 0 10px;
+  border-radius: var(--radius-md);
+  font-size: var(--fs-meta);
+  text-overflow: ellipsis;
+}
+.gc-browser-address .gc-input-well:focus,
+.gc-browser-address .gc-input-well:focus-visible { border-radius: var(--radius-md); }
+
+/* ---- Strip: viewports · chips · errors ---------------------------------- */
+.gc-browser-strip {
+  position: relative; /* the errors popover spans the strip */
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 0 12px 8px;
+}
+.gc-browser-viewports {
+  flex-shrink: 0;
+  width: auto;
+  grid-auto-columns: auto;
+  padding: 2px;
+  border-radius: var(--radius-md);
+}
+.gc-browser-viewports .gc-segmented-item {
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: var(--fs-meta);
+}
+.gc-browser-viewports .gc-segmented-item:focus-visible { border-radius: 6px; }
+.gc-browser-viewports .gc-segmented-label { display: inline-flex; align-items: center; gap: 4px; }
+.gc-browser-scale {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-micro);
+  font-variant-numeric: tabular-nums;
+}
+
+.gc-browser-chips {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin: -3px 0; /* room for focus rings inside the scroller */
+  padding: 3px 0;
+}
+.gc-browser-chips::-webkit-scrollbar { display: none; }
+.gc-browser-chip {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 9px 0 8px;
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  background: var(--fill-hover);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  font-size: var(--fs-meta);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transition: background-color var(--dur-hover) var(--ease-hover), color var(--dur-hover) var(--ease-hover), transform var(--dur-instant) var(--ease-out);
+}
+.gc-browser-chip:active { transform: scale(.96); }
+.gc-browser-chip[aria-pressed="true"] { color: var(--text-primary); background: var(--fill-selected); box-shadow: inset 0 0 0 1px var(--hairline-strong); }
+@media (hover: hover) and (pointer: fine) {
+  .gc-browser-chip:hover:not([aria-pressed="true"]) { color: var(--text-primary); background: var(--fill-pressed); transition-duration: 0ms, 0ms, var(--dur-instant); }
+}
+/* A running server: the running colour, held still (toolbar chrome does not breathe). */
+.gc-browser-chip-light {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--status-yellow);
+  box-shadow: var(--status-light-ring);
+}
+
+.gc-browser-errors { flex-shrink: 0; margin-left: auto; }
+.gc-browser-error-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 9px 0 8px;
+  border-radius: var(--radius-full);
+  color: var(--error-text);
+  background: var(--error-subtle);
+  font-size: var(--fs-meta);
+  font-weight: 560;
+  font-variant-numeric: tabular-nums;
+  transition: background-color var(--dur-hover) var(--ease-hover), transform var(--dur-instant) var(--ease-out);
+}
+.gc-browser-error-count:active { transform: scale(.96); }
+@media (hover: hover) and (pointer: fine) {
+  .gc-browser-error-count:hover { background: color-mix(in srgb, var(--error-strong) 20%, transparent); transition-duration: 0ms, var(--dur-instant); }
+}
+
+/* Popover under the strip, right-aligned, at most 420px wide. */
+.gc-browser-popover {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% - 2px);
+  left: 12px;
+  right: 12px;
+  max-width: 420px;
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  max-height: min(360px, 50vh);
+  padding: 5px;
+  border-radius: var(--radius-xl);
+  color: var(--text-primary);
+  background: var(--surface-raised);
+  box-shadow: var(--elev-overlay);
+  transform-origin: top right;
+  animation: gc-pop-in 160ms var(--ease-out);
+}
+.gc-browser-popover-head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 3px 6px 8px;
+  font-size: var(--fs-meta);
+}
+.gc-browser-popover-head strong { color: var(--text-secondary); font-weight: 560; }
+.gc-browser-popover-head .gc-btn-sm { min-height: 26px; padding: 0 9px; }
+.gc-browser-popover ol {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+}
+.gc-browser-popover li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 9px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--ink-shade) 18%, transparent);
+}
+.gc-browser-popover pre {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-meta);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.gc-browser-error-repeat {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-micro);
+  font-variant-numeric: tabular-nums;
+  line-height: 19.5px;
+}
+
+/* ---- Notices ------------------------------------------------------------ */
+.gc-browser-notice {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 12px 8px;
+  padding: 5px 5px 5px 10px;
+  min-height: 38px;
+  border-radius: var(--radius-lg);
+  color: var(--error-text);
+  background: var(--error-subtle);
+  font-size: var(--fs-meta);
+  line-height: 1.45;
+}
+.gc-browser-notice > svg { flex-shrink: 0; }
+.gc-browser-notice > span { flex: 1; min-width: 0; overflow-wrap: anywhere; text-wrap: pretty; }
+.gc-browser-notice.is-quiet { color: var(--text-secondary); background: var(--fill-hover); box-shadow: inset 0 0 0 1px var(--hairline); }
+.gc-browser-notice .gc-btn-sm { flex-shrink: 0; min-height: 28px; padding: 0 10px; }
+.gc-browser-notice .gc-side-icon { width: 26px; height: 26px; }
+
+/* ---- Stage -------------------------------------------------------------- */
+.gc-browser-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  margin: 0 12px 12px;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  background: var(--surface-inset);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.gc-browser-fit { position: absolute; inset: 0; }
+/* Fixed-width device frame: left 50% plus translateX(-50%) centres it at any
+   scale (inline transform); scaled about its top centre. */
+.gc-browser-device {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  height: calc(100% - 24px);
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--browser-canvas);
+  box-shadow: var(--elev-floating);
+  transform-origin: top center;
+}
+.gc-browser-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  /* Pages that leave their canvas transparent get the white they assume. */
+  color-scheme: normal;
+  background: var(--browser-canvas);
+}
+
+/* Indeterminate progress line while a page or a preview server starts. */
+.gc-browser-progress {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  overflow: hidden;
+  pointer-events: none;
+}
+.gc-browser-progress::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--text-muted), transparent);
+  animation: gc-browser-progress 1.2s var(--ease-in-out) infinite;
+}
+@keyframes gc-browser-progress {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(250%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gc-browser-progress::before { left: 0; width: 100%; opacity: .5; transform: none; animation: none; }
+}
+
+/* A page that can't be shown: covers the empty frame. */
+.gc-browser-blocked {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  text-align: center;
+  background: var(--surface-inset);
+}
+.gc-browser-blocked .gc-modal-icon { margin: 0 0 4px; }
+.gc-browser-blocked strong { color: var(--text-primary); font-size: var(--fs-ui); font-weight: 560; }
+.gc-browser-blocked small { max-width: 40ch; color: var(--text-muted); font-size: var(--fs-meta); line-height: 1.55; text-wrap: pretty; }
+.gc-browser-blocked-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 8px; }
+
+/* ---- Start screen ------------------------------------------------------- */
+.gc-browser-start {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 6px 12px 16px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.gc-browser-group h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px 2px;
+  color: var(--text-secondary);
+  font-size: var(--fs-meta);
+  font-weight: 560;
+}
+.gc-browser-group ul { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.gc-browser-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: var(--radius-lg);
+  color: var(--text-muted);
+  background: var(--surface);
+  box-shadow: var(--elev-raised);
+  text-align: left;
+  transition: background-color var(--dur-hover) var(--ease-hover), color var(--dur-hover) var(--ease-hover), transform var(--dur-instant) var(--ease-out);
+}
+.gc-browser-card:active:not(:disabled) { transform: scale(.98); }
+.gc-browser-card:disabled { opacity: var(--disabled-opacity); }
+@media (hover: hover) and (pointer: fine) {
+  .gc-browser-card:hover:not(:disabled) { color: var(--text-secondary); background: var(--surface-elevated); transition-duration: 0ms, 0ms, var(--dur-instant); }
+}
+.gc-browser-card > svg { flex-shrink: 0; }
+.gc-browser-card > span:not(.gc-browser-chip-light) { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.gc-browser-card strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+  font-size: var(--fs-ui);
+  font-weight: 560;
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
+}
+.gc-browser-card small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  line-height: 18px;
+}
+.gc-browser-hint,
+.gc-browser-footnote {
+  margin: 0 2px;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+.gc-browser-hint.gc-shimmer-text { color: transparent; }
+.gc-browser-footnote { margin-top: auto; color: var(--text-faint); }

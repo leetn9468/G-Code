@@ -1,0 +1,19 @@
+node_modules
+dist
+dist-ssr
+.DS_Store
+*.local
+.env
+.env.local
+
+# Rust
+src-tauri/target
+src-tauri/Cargo.lock
+src-tauri/gen
+
+# IDE
+.vscode
+.idea
+
+# Private local-model runtime and pinned upstream build cache
+runtime/

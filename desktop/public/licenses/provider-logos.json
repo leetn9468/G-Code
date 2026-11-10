@@ -1,0 +1,67 @@
+{
+  "purpose": "Provider identification in G-Code. Marks belong to their respective owners; inclusion does not imply endorsement or affiliation. Upstream code licenses do not grant trademark rights.",
+  "rendering": "Original monochrome geometry and viewBox; SVG roots converted to symbols and decorative titles removed for a bundled shared sprite. No external requests at runtime.",
+  "assets": {
+    "anthropic": {
+      "repository": "https://github.com/lobehub/lobe-icons",
+      "revision": "05a9b8c41e4735a4a2b6d2f1e43574bd8ec6c8cb",
+      "upstream_path": "packages/static-svg/icons/claude.svg",
+      "download_url": "https://raw.githubusercontent.com/lobehub/lobe-icons/05a9b8c41e4735a4a2b6d2f1e43574bd8ec6c8cb/packages/static-svg/icons/claude.svg",
+      "upstream_sha256": "365a70a7eb3956d9b9a96086058ebe04e1dbd8e291a756ad964e8a283fbd6d38",
+      "local_file": "src/icons/providers/anthropic.svg",
+      "license": "MIT",
+      "license_file": "lobehub-icons-LICENSE.txt"
+    },
+    "openai": {
+      "repository": "https://github.com/anomalyco/opencode",
+      "revision": "165cd2e832574ccdea3b311fe1a0f9db2e5c883e",
+      "upstream_path": "packages/ui/src/assets/icons/provider/openai.svg",
+      "download_url": "https://raw.githubusercontent.com/anomalyco/opencode/165cd2e832574ccdea3b311fe1a0f9db2e5c883e/packages/ui/src/assets/icons/provider/openai.svg",
+      "upstream_sha256": "a495ae1dee53ebf3eab642acb0c6e564ea23ceb7c1565c826f480cb2bf32beda",
+      "local_file": "src/icons/providers/openai.svg",
+      "license": "MIT",
+      "license_file": "opencode-LICENSE.txt"
+    },
+    "gemini": {
+      "repository": "https://github.com/anomalyco/opencode",
+      "revision": "165cd2e832574ccdea3b311fe1a0f9db2e5c883e",
+      "upstream_path": "packages/ui/src/assets/icons/provider/google.svg",
+      "download_url": "https://raw.githubusercontent.com/anomalyco/opencode/165cd2e832574ccdea3b311fe1a0f9db2e5c883e/packages/ui/src/assets/icons/provider/google.svg",
+      "upstream_sha256": "32768e91724a46b8f06c3999b491984ef7974194057cc617658635df4ea65240",
+      "local_file": "src/icons/providers/gemini.svg",
+      "license": "MIT",
+      "license_file": "opencode-LICENSE.txt"
+    },
+    "deepseek": {
+      "repository": "https://github.com/anomalyco/opencode",
+      "revision": "165cd2e832574ccdea3b311fe1a0f9db2e5c883e",
+      "upstream_path": "packages/ui/src/assets/icons/provider/deepseek.svg",
+      "download_url": "https://raw.githubusercontent.com/anomalyco/opencode/165cd2e832574ccdea3b311fe1a0f9db2e5c883e/packages/ui/src/assets/icons/provider/deepseek.svg",
+      "upstream_sha256": "fdc7613fa261eab83bccf6a2e087cf4d83b9050e9222a874689447ad901a84d5",
+      "local_file": "src/icons/providers/deepseek.svg",
+      "license": "MIT",
+      "license_file": "opencode-LICENSE.txt"
+    },
+    "qwen": {
+      "repository": "https://github.com/lobehub/lobe-icons",
+      "revision": "05a9b8c41e4735a4a2b6d2f1e43574bd8ec6c8cb",
+      "upstream_path": "packages/static-svg/icons/qwen.svg",
+      "download_url": "https://raw.githubusercontent.com/lobehub/lobe-icons/05a9b8c41e4735a4a2b6d2f1e43574bd8ec6c8cb/packages/static-svg/icons/qwen.svg",
+      "upstream_sha256": "dcb3ba2f2b55ccbacbade0ca0bf98921fbaf8a07848972974b4a9bf8077376cf",
+      "local_file": "src/icons/providers/qwen.svg",
+      "license": "MIT",
+      "license_file": "lobehub-icons-LICENSE.txt"
+    },
+    "ollama": {
+      "repository": "https://github.com/anomalyco/opencode",
+      "revision": "165cd2e832574ccdea3b311fe1a0f9db2e5c883e",
+      "upstream_path": "packages/ui/src/assets/icons/provider/ollama-cloud.svg",
+      "download_url": "https://raw.githubusercontent.com/anomalyco/opencode/165cd2e832574ccdea3b311fe1a0f9db2e5c883e/packages/ui/src/assets/icons/provider/ollama-cloud.svg",
+      "upstream_sha256": "b2e03b786987a1a66a5144f0373d33320a256a6e4dad391593f7b16232d40c43",
+      "local_file": "src/icons/providers/ollama.svg",
+      "license": "MIT",
+      "license_file": "opencode-LICENSE.txt"
+    }
+  },
+  "sprite_sha256": "359de76098174ba78f083d5f485f9c55d594d94aae8426a51a07d208dc4b4529"
+}

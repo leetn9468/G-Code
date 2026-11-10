@@ -1,0 +1,351 @@
+/* G-Code Desktop — 2026 design tokens.
+   Palette (user decision 2026-10-16, from the user's two reference palettes):
+   neutral graphite surfaces — Onyx #141414, Jet Black #1A1A1A, Onyx #222526,
+   Charcoal #2B2B2B, Graphite #353A3E — with Platinum #E0E0E0 / Ash #BFBFBF
+   text, and the azure brand: Dark Azure #00638E fills (white text), its
+   lighter stops #8CB9CC / Light Azure #BFD8E3 for indicators on dark (Dark
+   Azure itself is only ~2.6:1 on the panel). Branding gradient #000000 ·
+   #004A6B · #00638E · #8CB9CC. Session status lights and success/warning/
+   error use the macOS traffic-light red, yellow and green. */
+
+:root {
+  color-scheme: dark;
+
+  /* --- Elevation ladder (neutral graphite, lighter = closer) ------------ */
+  --canvas:            #141414;   /* Onyx — window canvas: titlebar, sidebar, status strip */
+  --background:        #1A1A1A;   /* Jet Black — inset conversation panel */
+  --surface:           #222526;   /* Onyx — cards, rows, inputs inside the panel */
+  --surface-elevated:  #2B2B2B;   /* Charcoal — popovers, composer, modals */
+  --surface-raised:    #353A3E;   /* Graphite — hover on elevated surfaces */
+  --surface-inset:     #141414;   /* wells: code, pre, terminal */
+  --border:            #353A3E;
+  --border-strong:     #4A5055;
+  /* Opaque inks behind every hairline/fill alpha; outside :root, mix them
+     with color-mix(in srgb, var(--ink-…) N%, transparent). */
+  --ink-hairline:      #FFFFFF;
+  --ink-shade:         #000000;
+  --hairline:          rgba(255, 255, 255, 0.08);
+  --hairline-strong:   rgba(255, 255, 255, 0.13);
+  --hairline-accent:   rgba(140, 185, 204, 0.34);
+  --overlay:           rgba(0, 0, 0, 0.62);
+  /* Zero-alpha end stops for fades (no grey fringe without premultiplication). */
+  --background-clear:    rgba(26, 26, 26, 0);
+  --surface-inset-clear: rgba(20, 20, 20, 0);
+
+  /* Fill states for quiet controls (on any surface of the ladder). */
+  --fill-hover:        rgba(255, 255, 255, 0.06);
+  --fill-pressed:      rgba(255, 255, 255, 0.10);
+  --fill-selected:     rgba(255, 255, 255, 0.09);
+
+  /* --- Text ------------------------------------------------------------- */
+  --text-primary:      #E0E0E0;   /* Platinum, 13.2:1 on the panel */
+  --text-secondary:    #BFBFBF;   /* Ash */
+  --text-muted:        #A3A3A3;   /* AA even on Graphite (4.56:1) */
+  --text-faint:        #7C7C7C;   /* meta and placeholders only (4.2:1) */
+  --text-inverse:      #0A0A0A;   /* ink on bright fills (success marks, light azure) */
+  --text-on-accent:    #FFFFFF;   /* Paper White on Dark Azure fills (6.6:1) */
+  --text-code:         #D6D6D6;   /* plain code/pre text, a touch dimmer than prose */
+
+  /* --- Brand: azure ----------------------------------------------------- */
+  --accent:            #8CB9CC;   /* indicators, links, caret, focus, selection edge (8.2:1) */
+  --accent-hover:      #BFD8E3;   /* Light Azure */
+  --accent-pressed:    #004A6B;
+  --accent-muted:      #004A6B;
+  --accent-subtle:     rgba(140, 185, 204, 0.12);
+  --accent-faint:      rgba(140, 185, 204, 0.06);
+  --accent-solid:      #00638E;   /* Dark Azure — primary buttons, send, toggles, radios */
+  --accent-solid-hover:#0B6E9C;   /* still 5.6:1 under white text */
+  --accent-glow:       rgba(140, 185, 204, 0.28);
+  --accent-clear:      rgba(140, 185, 204, 0);
+  /* The "/" mark: the branding gradient's azure, lifted enough to read on near-black. */
+  --logo-from:         #1279A8;
+  --logo-to:           #BFD8E3;
+  /* Compatibility aliases for older provider/settings controls. */
+  --teal-accent:       var(--accent);
+  --teal-hover:        var(--accent-hover);
+  --teal-pressed:      var(--accent-pressed);
+  --teal-muted:        var(--accent-muted);
+  --teal-subtle:       var(--accent-subtle);
+
+  /* --- Semantic (one red, yellow and green: the traffic lights) -------- */
+  --success:           #28C840;
+  --success-subtle:    rgba(40, 200, 64, 0.12);
+  --warning:           #FEBC2E;
+  --warning-subtle:    rgba(254, 188, 46, 0.10);
+  --error:             #FF7C74;   /* text tint of the traffic red */
+  --error-strong:      #FF5F57;   /* fills, mixes and dots, not small text */
+  --error-subtle:      rgba(255, 95, 87, 0.12);
+  --info:              #9DACF4;
+  --info-subtle:       rgba(157, 172, 244, 0.12);
+
+  /* --- Session status lights (macOS traffic-light colours) ------------ */
+  --status-red:        #FF5F57;
+  --status-yellow:     #FEBC2E;
+  --status-green:      #28C840;
+  --status-idle:       var(--text-faint);
+  /* Text tints for status pills on raised cards (AA with their 8–12% tint). */
+  --success-text:      #4CD964;
+  --error-text:        #FF948D;
+  /* Code line numbers: quieter than muted, still AA on --surface-inset. */
+  --text-gutter:       #8C8C8C;   /* AA on the well and on diff add/del/hunk tints */
+
+  /* --- Provider brand accents ----------------------------------------- */
+  --provider-anthropic-from: #D97757;
+  --provider-anthropic-to:   #B85D3F;
+  --provider-openai:         #10A37F;
+  --provider-gemini:         #4285F4;
+  --provider-deepseek:       #3B7AF9;
+  --provider-qwen:           #A855F7;
+  --provider-ollama:         var(--text-primary);
+
+  /* Theme-aware syntax inks and small control shadows (dark values kept). */
+  --code-comment: #949494;
+  --code-punctuation: #A8A8A8;
+  --code-operator: #C4C4C4;
+  --code-function: #97BEFF;
+  --code-class: #C2B1F8;
+  --code-string: #F2D08B;
+  --code-number: #F9A8D4;
+  --code-property: #C9DCE4;
+  --code-regex: #FDBA74;
+  --code-deleted: #FCA5A5;
+  --control-shadow: inset 0 1px 0 rgba(255, 255, 255, .22), 0 1px 2px rgba(0, 0, 0, .35);
+  --well-shadow: inset 0 1px 2px rgba(0, 0, 0, .3);
+  --key-shadow: inset 0 -1px 0 rgba(0, 0, 0, .25);
+  --knob-shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 2px 6px rgba(0, 0, 0, .2);
+  --status-light-ring: inset 0 0 0 0.5px rgba(0, 0, 0, .25);
+  --code-highlight: inset 0 1px 0 rgba(255, 255, 255, .035);
+  --code-header-wash: linear-gradient(rgba(255, 255, 255, .025), rgba(255, 255, 255, 0));
+  --control-highlight: rgba(255, 255, 255, .1);
+  --control-knob: #FFFFFF;
+  --raised-highlight: inset 0 1px 0 rgba(255, 255, 255, .22);
+  --sidebar-overlay-shadow: 16px 0 40px rgba(0, 0, 0, .5);
+  --search-well-shadow: inset 0 1px 2px rgba(0, 0, 0, .18);
+  --search-key-shadow: 0 1px 2px rgba(0, 0, 0, .35), inset 0 0 0 .5px color-mix(in srgb, var(--ink-hairline) 17%, transparent), inset 0 1px 0 rgba(255, 255, 255, .05);
+
+  /* --- Layout ---------------------------------------------------------- */
+  /* Window chrome: the traffic lights, the sidebar toggle and the panel's
+     first row share one axis 26px from the top (a unified-toolbar row of
+     52px). tauri.conf.json trafficLightPosition puts the lights on it. */
+  --chrome-axis:        26px;
+  --chrome-row:         28px;     /* height of controls on the axis */
+  --titlebar-height:    calc(var(--chrome-axis) * 2);
+  --traffic-lights-end: 80px;     /* the sidebar toggle starts here */
+  --titlebar-collapsed-width: 118px;
+  --chat-header-inset:  calc(var(--chrome-axis) - var(--chrome-row) / 2 - var(--panel-gap));
+  --chat-header-height: calc(var(--chat-header-inset) + var(--chrome-row) + 6px);
+  --statusbar-height:   30px;
+  --sidebar-width:      240px;
+  --panel-gap:          8px;      /* canvas gutter around the inset panel */
+  --panel-radius:       12px;
+  --content-width:      780px;    /* reading column for the conversation */
+
+  /* --- Type ------------------------------------------------------------ */
+  /* User decision (2026-10-15): the whole app uses the macOS System Font,
+     including code and previews. -apple-system must precede PingFang SC so
+     Han text gets the UI-tuned PingFang variant. No bundled web fonts. */
+  --font-ui:   -apple-system, BlinkMacSystemFont, system-ui, 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+  --font-mono: var(--font-ui);
+
+  /* Sizes: the 2026-10-14 scale (UI +2px, chat 16 with a 15–18 setting) is the floor. */
+  --fs-display:  32px;
+  --fs-title:    22px;
+  --fs-heading:  18px;
+  --fs-chat:     16px;
+  --fs-body:     15px;
+  --fs-ui:       14px;
+  --fs-meta:     13px;
+  --fs-micro:    12px;
+  --fs-pill:     11px;
+  --fs-mono:     13.5px;
+  --fs-kbd:      12px;
+
+  /* --- Radius ---------------------------------------------------------- */
+  --radius-xs:     5px;
+  --radius-sm:     6px;
+  --radius-md:     8px;
+  --radius-lg:     10px;
+  --radius-xl:     12px;
+  --radius-2xl:    16px;
+  --radius-3xl:    20px;
+  --radius-full:   999px;
+  --radius-card:   12px;
+  --radius-bubble: 16px;
+  --radius-modal:  18px;
+
+  /* --- Shadows (dark UI: depth from shadow + top highlight, not borders) */
+  --highlight-top:   inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  --shadow-xs:       0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-sm:       0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 8px -2px rgba(0, 0, 0, 0.35);
+  --shadow-md:       0 10px 28px -10px rgba(0, 0, 0, 0.65), 0 2px 6px -1px rgba(0, 0, 0, 0.35);
+  --shadow-lg:       0 24px 64px -16px rgba(0, 0, 0, 0.75), 0 8px 20px -8px rgba(0, 0, 0, 0.45);
+  --ring-hairline:   0 0 0 0.5px rgba(255, 255, 255, 0.14);
+  --ring-highlight:  0 -0.5px 0 0 rgba(255, 255, 255, 0.06);
+  --elev-raised:     0 2px 4px rgba(0, 0, 0, 0.30), 0 1px 2px rgba(0, 0, 0, 0.30), var(--ring-hairline), var(--ring-highlight);
+  --elev-floating:   0 8px 16px rgba(0, 0, 0, 0.32), 0 4px 8px rgba(0, 0, 0, 0.30), var(--ring-hairline), var(--ring-highlight);
+  --elev-overlay:    0 16px 32px rgba(0, 0, 0, 0.36), 0 8px 16px rgba(0, 0, 0, 0.30), var(--ring-hairline), var(--ring-highlight);
+  --shadow-panel:    var(--elev-raised);
+  --shadow-modal:    var(--elev-overlay);
+  --focus-ring:      0 0 0 2px var(--background), 0 0 0 4px rgba(140, 185, 204, 0.70);
+  --glow-accent:     0 0 0 1px var(--hairline-accent);
+  --glow-teal:       0 0 6px var(--accent);
+  --glow-success:    0 0 5px var(--success);
+
+  /* --- Motion ---------------------------------------------------------- */
+  --ease-out:        cubic-bezier(0.23, 1, 0.32, 1);     /* enters, exits, feedback */
+  --ease-in-out:     cubic-bezier(0.77, 0, 0.175, 1);    /* on-screen movement and morphs */
+  --ease-drawer:     cubic-bezier(0.32, 0.72, 0, 1);     /* side panels and sheets */
+  --ease-spring:     cubic-bezier(0.34, 1.36, 0.64, 1);  /* toggle knob only */
+  --dur-instant:     90ms;
+  --dur-fast:        140ms;
+  --dur-base:        200ms;
+  --dur-slow:        300ms;
+  /* Hover: instant in (transition-duration 0ms on :hover), this fade out. */
+  --dur-hover:       150ms;
+  --ease-hover:      ease;
+
+  /* --- States ---------------------------------------------------------- */
+  --disabled-opacity: .45;
+}
+
+/* Light: Paper White, Platinum-derived neutral steps, Onyx/Graphite ink.
+   Semantic and syntax inks are derived for AA; status dots retain macOS hues. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --canvas: #F2F2F2;
+  --background: #FFFFFF;
+  --surface: #F2F2F2;
+  --surface-elevated: #FFFFFF;
+  --surface-raised: #EBEBEB;
+  --surface-inset: #F2F2F2;
+  --border: #C5C8CA;
+  --border-strong: #959B9F;
+  --ink-hairline: #141414;
+  --hairline: rgba(20, 20, 20, .10);
+  --hairline-strong: rgba(20, 20, 20, .18);
+  --hairline-accent: rgba(0, 99, 142, .40);
+  --overlay: rgba(20, 20, 20, .30);
+  --background-clear: rgba(255, 255, 255, 0);
+  --surface-inset-clear: rgba(242, 242, 242, 0);
+  --fill-hover: rgba(20, 20, 20, .05);
+  --fill-pressed: rgba(20, 20, 20, .09);
+  --fill-selected: rgba(20, 20, 20, .07);
+  --text-primary: #141414;
+  --text-secondary: #353A3E;
+  --text-muted: #54595D;
+  --text-faint: #60666B;
+  --text-inverse: #FFFFFF;
+  --text-code: #353A3E;
+  --text-gutter: #54595D; /* AA on the compounded diff row + gutter tints. */
+  --accent: #00638E;
+  --accent-hover: #004A6B;
+  --accent-solid-hover: #005377;
+  --accent-subtle: rgba(0, 99, 142, .10);
+  --accent-faint: rgba(0, 99, 142, .05);
+  --accent-glow: rgba(0, 99, 142, .22);
+  --accent-clear: rgba(0, 99, 142, 0);
+  --logo-from: #004A6B;
+  --logo-to: #00638E;
+  --success: #176B2D;
+  --success-text: #176B2D;
+  --success-subtle: rgba(23, 107, 45, .08);
+  --warning: #805900;
+  --warning-subtle: rgba(128, 89, 0, .08);
+  --error: #B42318;
+  --error-strong: #B42318;
+  --error-text: #B42318;
+  --error-subtle: rgba(180, 35, 24, .08);
+  --info: #3F51A5;
+  --info-subtle: rgba(63, 81, 165, .08);
+  /* No white top sheen in Light: on pale surfaces it only shows at the rounded corners, where it reads as the edge colour breaking up. */
+  --highlight-top: inset 0 0 0 0 transparent;
+  --shadow-xs: 0 1px 2px rgba(20, 20, 20, .06);
+  --shadow-sm: 0 1px 2px rgba(20, 20, 20, .06), 0 2px 8px -2px rgba(20, 20, 20, .06);
+  --shadow-md: 0 10px 28px -10px rgba(20, 20, 20, .15), 0 2px 6px -1px rgba(20, 20, 20, .08);
+  --shadow-lg: 0 24px 64px -16px rgba(20, 20, 20, .20), 0 8px 20px -8px rgba(20, 20, 20, .10);
+  --ring-hairline: 0 0 0 .5px rgba(20, 20, 20, .18);
+  --ring-highlight: 0 0 0 0 transparent;
+  --elev-raised: 0 2px 4px rgba(20, 20, 20, .05), 0 1px 2px rgba(20, 20, 20, .04), var(--ring-hairline), var(--ring-highlight);
+  --elev-floating: 0 4px 12px rgba(20, 20, 20, .08), 0 1px 3px rgba(20, 20, 20, .05), var(--ring-hairline), var(--ring-highlight);
+  --elev-overlay: 0 10px 24px rgba(20, 20, 20, .12), 0 2px 6px rgba(20, 20, 20, .06), var(--ring-hairline), var(--ring-highlight);
+  --focus-ring: 0 0 0 2px var(--background), 0 0 0 4px rgba(0, 99, 142, .70);
+  --code-comment: #5C6368;
+  --code-punctuation: #4A5055;
+  --code-operator: #353A3E;
+  --code-function: #1655A3;
+  --code-class: #65459A;
+  --code-string: #785500;
+  --code-number: #9B3268;
+  --code-property: #304B59;
+  --code-regex: #925009;
+  --code-deleted: #B42318;
+  --control-shadow: inset 0 1px 0 rgba(255, 255, 255, .22), 0 1px 2px rgba(20, 20, 20, .10);
+  --well-shadow: inset 0 1px 2px rgba(20, 20, 20, .06);
+  --key-shadow: inset 0 -1px 0 rgba(20, 20, 20, .10);
+  --knob-shadow: 0 1px 2px rgba(20, 20, 20, .14), 0 2px 6px rgba(20, 20, 20, .06);
+  --status-light-ring: inset 0 0 0 .5px rgba(20, 20, 20, .20);
+  --code-highlight: inset 0 1px 0 rgba(255, 255, 255, .65);
+  --code-header-wash: none;
+  --control-highlight: rgba(20, 20, 20, .10);
+  --raised-highlight: inset 0 1px 0 rgba(255, 255, 255, .65);
+  --sidebar-overlay-shadow: 16px 0 40px rgba(20, 20, 20, .16);
+  --search-well-shadow: inset 0 1px 2px rgba(20, 20, 20, .06);
+  --search-key-shadow: 0 1px 2px rgba(20, 20, 20, .08), inset 0 0 0 .5px color-mix(in srgb, var(--ink-hairline) 17%, transparent), inset 0 1px 0 rgba(255, 255, 255, .65);
+}
+
+/* A theme change must not animate the colour of every element. */
+:root.gc-theme-switching *, :root.gc-theme-switching *::before, :root.gc-theme-switching *::after { transition: none !important; }
+
+/* --- Keyframes ----------------------------------------------------------- */
+@keyframes gc-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); }
+  50%      { box-shadow: 0 0 0 6px var(--accent-clear); }
+}
+@keyframes gc-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes gc-shimmer {
+  from { background-position: 150% 0; }
+  to   { background-position: -50% 0; }
+}
+@keyframes gc-breathe {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: .45; transform: scale(.82); }
+}
+@keyframes gc-fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes gc-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* Reduced motion = fewer and gentler, not zero: movement and loops stop,
+   content that appears still fades (opacity only). Transitions keep colour
+   and opacity fades; transform, size and stroke-dashoffset changes are instant. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-property: color, background-color, border-color, fill, stroke, box-shadow, opacity !important;
+    scroll-behavior: auto !important;
+  }
+  /* Surfaces that enter with gc-fade-up / gc-pop-in keep an opacity-only fade. */
+  .gc-enter,
+  .gc-shell-alert,
+  .gc-settings-dirty,
+  .gc-provider-test-result,
+  .gc-provider-confirm,
+  .gc-disclosure[open] > .gc-disclosure-body,
+  .gc-activity-panel details[open] > :not(summary) { animation: gc-fade 160ms var(--ease-out) both !important; }
+  .gc-menu[data-state="open"],
+  .gc-tooltip[data-state="delayed-open"] { animation: gc-fade 120ms var(--ease-out) !important; }
+  .gc-menu[data-state="closed"],
+  .gc-tooltip[data-state="closed"] { animation: gc-tip-out 90ms var(--ease-out) !important; }
+}
+
+@keyframes gc-pop-in  { from { opacity: 0; transform: scale(.97) translateY(var(--gc-pop-shift, 0px)); } to { opacity: 1; transform: none; } }
+@keyframes gc-pop-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(.98); } }
+@keyframes gc-tip-in  { from { opacity: 0; transform: scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes gc-tip-out { from { opacity: 1; } to { opacity: 0; } }
+[data-side="bottom"] { --gc-pop-shift: -4px; }
+[data-side="top"]    { --gc-pop-shift: 4px; }

@@ -1,0 +1,146 @@
+/* G-Code Desktop — embedded terminal (the side panel's Terminal view).
+   The grid sits straight on the panel surface under a tab strip in the
+   panel's header row. xterm.js reads the colours below at start-up
+   (TerminalPanel themeFromCss), so the palette lives here as tokens. xterm
+   parses only hex/rgb()/rgba(): no color-mix() in these. */
+
+:root {
+  --terminal-background: var(--background);
+  --terminal-foreground: var(--text-primary);
+  --terminal-cursor:     var(--accent);
+  --terminal-selection:  rgba(224, 224, 224, 0.22);   /* the foreground at 22%, as OpenCode */
+  /* ANSI tuned for the #1A1A1A panel: neutral blacks/whites, red/yellow/green near the status lights. */
+  --ansi-black:          #2B2B2B;
+  --ansi-red:            #FF6B6B;
+  --ansi-green:          #5BD98A;
+  --ansi-yellow:         #F7C65A;
+  --ansi-blue:           #5CA8FF;
+  --ansi-magenta:        #C59BFF;
+  --ansi-cyan:           #22D3EE;
+  --ansi-white:          #BFBFBF;
+  --ansi-bright-black:   #858585;
+  --ansi-bright-red:     #FF8E8E;
+  --ansi-bright-green:   #86EFAC;
+  --ansi-bright-yellow:  #FFDB8A;
+  --ansi-bright-blue:    #8CC4FF;
+  --ansi-bright-magenta: #DBBEFF;
+  --ansi-bright-cyan:    #67E8F9;
+  --ansi-bright-white:   #FFFFFF;
+}
+
+:root[data-theme="light"] {
+  --terminal-selection: rgba(0, 99, 142, .18);
+  --ansi-black: #141414;
+  --ansi-red: #B42318;
+  --ansi-green: #176B2D;
+  --ansi-yellow: #785500;
+  --ansi-blue: #1655A3;
+  --ansi-magenta: #65459A;
+  --ansi-cyan: #006375;
+  --ansi-white: #353A3E;
+  --ansi-bright-black: #60666B;
+  --ansi-bright-red: #A42A24;
+  --ansi-bright-green: #126031;
+  --ansi-bright-yellow: #6F5000;
+  --ansi-bright-blue: #1D4F91;
+  --ansi-bright-magenta: #713E8C;
+  --ansi-bright-cyan: #075B6B;
+  --ansi-bright-white: #141414;
+}
+
+/* Tabs on the header row (.gc-side-header: on the chrome axis). The first
+   tab's glyph lines up with the other views' title glyphs (14px in). */
+.gc-side-header.gc-terminal-bar { padding-left: 6px; }
+/* The tab list and the New terminal button (outside the tablist role). */
+.gc-terminal-strip {
+  flex: 1;
+  min-width: 0;
+  height: var(--chrome-row);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.gc-terminal-tabs {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.gc-terminal-tabs::-webkit-scrollbar { display: none; }
+.gc-terminal-tab {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  height: 26px;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  transition: background-color var(--dur-hover) var(--ease-hover), color var(--dur-hover) var(--ease-hover);
+}
+.gc-terminal-tab > button[role="tab"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  max-width: 220px;
+  padding: 0 4px 0 8px;
+  border-radius: inherit;
+  color: inherit;
+  font-size: var(--fs-meta);
+  font-weight: 520;
+  white-space: nowrap;
+}
+.gc-terminal-tab > button[role="tab"] span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.gc-terminal-tab.is-active { color: var(--text-primary); background: var(--fill-selected); }
+.gc-terminal-tab-close {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  transition: background-color var(--dur-hover) var(--ease-hover), color var(--dur-hover) var(--ease-hover), opacity var(--dur-hover) var(--ease-hover), transform var(--dur-instant) var(--ease-out);
+}
+.gc-terminal-tab-close { width: 24px; height: 24px; margin-right: 1px; }
+.gc-terminal-tab-close:active { transform: scale(.96); background: var(--fill-pressed); }
+.gc-terminal-panel button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.gc-terminal-views { position: relative; flex: 1; min-height: 0; }
+.gc-terminal { position: absolute; inset: 0; display: flex; flex-direction: column; padding: 0 6px 10px 14px; }
+.gc-terminal[hidden] { display: none; }
+.gc-terminal-host { flex: 1; min-height: 0; opacity: 0; transition: opacity 120ms var(--ease-out); }
+/* Fades in on the shell's first visible output (no blank or half-drawn grid). */
+.gc-terminal-host.is-revealed { opacity: 1; }
+/* WebKit would draw its own caret in xterm's hidden textarea. */
+.gc-terminal textarea { caret-color: transparent; }
+/* xterm paints its own background; keep the viewport and scrollbar quiet. */
+.gc-terminal .xterm { height: 100%; }
+.gc-terminal .xterm-viewport { background-color: transparent !important; }
+/* xterm 6 draws its own scrollbar; the app-wide ::-webkit-scrollbar styling
+   would otherwise show the viewport's native track as a square in the corner. */
+.gc-terminal .xterm-viewport { scrollbar-width: none; }
+.gc-terminal .xterm-viewport::-webkit-scrollbar { display: none; width: 0; height: 0; }
+.gc-terminal .xterm .xterm-scrollable-element > .scrollbar > .slider { border-radius: 4px; }
+.gc-terminal-empty {
+  margin: 10px 12px;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+}
+.gc-terminal-error {
+  margin: 4px 8px 8px 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: var(--error-subtle);
+  color: var(--error);
+  font-size: var(--fs-meta);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .gc-terminal-tab:not(.is-active):hover { color: var(--text-secondary); background: var(--fill-hover); transition-duration: 0ms; }
+  .gc-terminal-tab-close { opacity: 0; }
+  .gc-terminal-tab.is-active .gc-terminal-tab-close,
+  .gc-terminal-tab:hover .gc-terminal-tab-close,
+  .gc-terminal-tab-close:focus-visible { opacity: 1; transition-duration: 0ms; }
+  .gc-terminal-tab-close:hover { color: var(--text-primary); background: var(--fill-hover); transition-duration: 0ms, 0ms, 0ms, var(--dur-instant); }
+}

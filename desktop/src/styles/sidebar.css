@@ -1,0 +1,504 @@
+/* G-Code Desktop — sidebar: projects, chats and the footer dock.
+   The sidebar sits directly on the window canvas: transparent, no right
+   border, quiet chrome so the conversation leads (Linear / opencode).
+   Every row shares one grid: 8px inset · 16px icon slot · 8px gap, so text
+   starts at 32px; chats inside a project indent 20px to sit under the folder.
+   Hovers: background in instantly, 150ms fade out, pointer-only.
+   Press: rows scale(.98), compact buttons scale(.96). */
+
+.gc-sessions.gc-sidebar {
+  --sb-x: 8px;
+  --sb-slot: 16px;
+  --sb-gap: 8px;
+  --sb-text: calc(var(--sb-x) + var(--sb-slot) + var(--sb-gap));
+  --sb-indent: 20px;
+  --sb-fade: 150ms;
+  width: var(--sidebar-width);
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  /* The top of the column belongs to the traffic lights and the toggle. */
+  padding: calc(var(--titlebar-height) - var(--panel-gap)) 10px 10px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--fs-ui);
+  line-height: 1.4;
+}
+
+/* Focus rings sit inside rows so the scroll area never clips them; each
+   control keeps its own radius. */
+.gc-sidebar button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.gc-sidebar button:disabled { cursor: not-allowed; }
+
+/* ---- Search + New chat (user decision 2026-10-27) --------------------- */
+.gc-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 40px;
+  flex-shrink: 0;
+  user-select: none;
+  -webkit-user-select: none;
+  container: sidebar-top / inline-size;
+}
+.gc-sidebar-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--chrome-row);
+  padding: 0 7px 0 6px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  transition: background-color var(--sb-fade) ease, color var(--sb-fade) ease, transform var(--dur-fast) var(--ease-out);
+}
+/* New chat is the primary action: the one accent glyph in the sidebar. */
+.gc-sidebar-new > svg { color: var(--accent); }
+.gc-sidebar-new > .gc-kbd { flex-shrink: 0; }
+.gc-sidebar-new:active { transform: scale(.96); background: var(--fill-pressed); }
+
+/* ---- Section header ("Projects") -------------------------------------- */
+.gc-sidebar-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 28px;
+  margin-top: 10px;
+  flex-shrink: 0;
+  padding: 0 3px 0 var(--sb-x);
+}
+.gc-sidebar-section h2 {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  letter-spacing: .02em;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ---- Compact icon buttons (refresh, row "+") --------------------------- */
+.gc-sidebar-icon {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  transition: color var(--sb-fade) ease, background-color var(--sb-fade) ease, opacity var(--sb-fade) ease, transform var(--dur-fast) var(--ease-out);
+}
+.gc-sidebar-icon:active:not(:disabled) { transform: scale(.96); background: var(--fill-pressed); }
+.gc-sidebar-icon:disabled { opacity: var(--disabled-opacity); }
+.gc-sidebar-refresh .is-loading { animation: gc-spin .9s linear infinite; }
+.gc-sidebar-refresh:disabled:has(.is-loading) { opacity: .85; }
+
+/* ---- Quiet rows: New project, footer items ---------------------------- */
+.gc-sidebar-add-project,
+.gc-sidebar-footer > button {
+  display: flex;
+  align-items: center;
+  gap: var(--sb-gap);
+  width: 100%;
+  min-width: 0;
+  padding: 0 6px 0 var(--sb-x);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-ui);
+  text-align: left;
+  transition: background-color var(--sb-fade) ease, color var(--sb-fade) ease, box-shadow var(--sb-fade) ease, transform var(--dur-fast) var(--ease-out);
+}
+.gc-sidebar-add-project {
+  height: 30px;
+  margin: 2px 0 6px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+.gc-sidebar-add-project > span,
+.gc-sidebar-footer > button > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gc-sidebar-add-project:active,
+.gc-sidebar-footer > button:active { transform: scale(.98); }
+
+.gc-sidebar-error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sb-gap);
+  margin: 0 0 8px;
+  padding: 7px var(--sb-x);
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background: var(--error-subtle);
+  color: var(--error);
+  font-size: var(--fs-meta);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.gc-sidebar-error > svg { margin-top: 1px; }
+.gc-sidebar-error > span { min-width: 0; }
+
+/* ---- Scrolling list: 16px bottom fade, padding so the last row clears it */
+.gc-sidebar-items {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 0 -6px;
+  padding: 2px 6px 16px;
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 16px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 16px), transparent);
+}
+
+/* ---- Project groups ----------------------------------------------------- */
+.gc-project-group + .gc-project-group { margin-top: 2px; }
+.gc-project-group-header {
+  display: flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 3px 0 4px;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  transition: background-color var(--sb-fade) ease, color var(--sb-fade) ease, transform var(--dur-fast) var(--ease-out);
+}
+/* Selection has one owner. The current project's header is filled only while
+   none of its visible chats holds the pill (a new chat in the project, or the
+   group collapsed); otherwise the chat pill alone marks where you are. */
+.gc-project-group-header.active { color: var(--text-primary); }
+.gc-project-group:not(:has(.gc-sidebar-chat.active)) > .gc-project-group-header.active { background: var(--fill-hover); }
+.gc-project-group-header:has(> .gc-project-select:active) { transform: scale(.98); }
+.gc-project-collapse {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-faint);
+  transition: color var(--sb-fade) ease;
+}
+.gc-project-collapse > svg { transition: transform 150ms var(--ease-out); }
+.gc-project-collapse[aria-expanded="true"] > svg { transform: rotate(90deg); }
+.gc-project-select {
+  display: flex;
+  align-items: center;
+  gap: var(--sb-gap);
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding-right: 4px;
+  border-radius: var(--radius-sm);
+  color: inherit;
+  text-align: left;
+}
+.gc-project-select > svg { color: var(--text-muted); }
+.gc-project-group-header.active .gc-project-select > svg { color: var(--text-secondary); }
+.gc-project-select strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-ui);
+  font-weight: 560;
+  text-autospace: normal;
+}
+.gc-project-group-body { padding-top: 1px; }
+
+.gc-sidebar-group-empty {
+  display: flex;
+  align-items: center;
+  gap: var(--sb-gap);
+  height: 30px;
+  margin: 0;
+  padding-left: calc(var(--sb-x) + var(--sb-indent) + 1px);
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+}
+.gc-sidebar-group-empty > svg { margin-right: 1px; color: var(--text-faint); }
+
+/* ---- Chat rows: two lines, gliding selection pill ---------------------- */
+.gc-sidebar-chat {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  min-height: 44px;
+  margin: 1px 0;
+  border-radius: var(--radius-md);
+  transition: background-color var(--sb-fade) ease, transform var(--dur-fast) var(--ease-out);
+}
+.gc-sidebar-chat:has(> .gc-sidebar-chat-open:active) { transform: scale(.98); }
+/* Filled pill + 2px azure edge indicator; one element per list (layoutId). */
+.gc-sidebar-chat-pill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--fill-selected);
+  pointer-events: none;
+}
+.gc-sidebar-chat-pill::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: var(--accent);
+}
+.gc-sidebar-chat-open {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sb-gap);
+  padding: 4px var(--sb-x);
+  border-radius: inherit;
+  color: var(--text-secondary);
+  text-align: left;
+}
+.gc-project-group .gc-sidebar-chat-open { padding-left: calc(var(--sb-x) + var(--sb-indent)); }
+.gc-sidebar-chat-mark { display: grid; place-items: center; width: var(--sb-slot); height: 20px; flex-shrink: 0; }
+
+/* Status light in the row's icon slot (macOS traffic-light colours):
+   yellow breathing while running, red when the user is needed, green when
+   the turn finished. No light for chats that ran nothing in this window. */
+.gc-session-light {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--status-idle);
+  box-shadow: var(--status-light-ring);
+}
+.gc-session-light[data-status="running"]   { background: var(--status-yellow); animation: gc-breathe 1.6s var(--ease-in-out) infinite; }
+/* Not colour alone (red and green look alike to many): "needs you" is a dot
+   in a ring, "running" breathes (a hollow ring when motion is reduced),
+   "finished" is a plain dot. The outline's offset leaves a real gap on any row fill. */
+.gc-session-light[data-status="attention"] { width: 6px; height: 6px; background: var(--status-red); outline: 1.5px solid var(--status-red); outline-offset: 1.5px; }
+@media (prefers-reduced-motion: reduce) {
+  .gc-session-light[data-status="running"] { background: transparent; box-shadow: inset 0 0 0 2px var(--status-yellow); }
+}
+.gc-session-light[data-status="done"]      { background: var(--status-green); }
+.gc-sidebar-chat-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.gc-sidebar-chat-title {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-size: var(--fs-ui);
+  font-weight: 450;
+  line-height: 20px;
+  text-autospace: normal;
+  transition: color var(--sb-fade) ease;
+}
+.gc-sidebar-chat.active .gc-sidebar-chat-title { color: var(--text-primary); font-weight: 550; }
+.gc-sidebar-chat-meta {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: var(--fs-micro);
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Delete: always visible where there is no hover; revealed on hover/focus
+   otherwise. The text column fades out beneath it so the two never collide. */
+.gc-sidebar-chat-delete {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  margin-top: -12px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  transition: opacity var(--sb-fade) ease, color var(--sb-fade) ease, background-color var(--sb-fade) ease, transform var(--dur-fast) var(--ease-out);
+}
+.gc-sidebar-chat-delete:disabled { opacity: .35; }
+.gc-sidebar-chat-delete:active:not(:disabled) { transform: scale(.96); }
+.gc-sidebar-chat-text {
+  -webkit-mask-image: linear-gradient(to left, transparent 22px, #000 44px);
+  mask-image: linear-gradient(to left, transparent 22px, #000 44px);
+}
+
+.gc-sidebar-show-more {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 28px;
+  padding: 0 var(--sb-x) 0 var(--sb-text);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+  transition: color var(--sb-fade) ease;
+}
+.gc-project-group .gc-sidebar-show-more { padding-left: calc(var(--sb-text) + var(--sb-indent)); }
+
+/* ---- Recents ------------------------------------------------------------ */
+.gc-recents-group { position: relative; }
+.gc-project-group + .gc-recents-group { margin-top: 10px; padding-top: 10px; }
+.gc-project-group + .gc-recents-group::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: var(--sb-x);
+  right: var(--sb-x);
+  height: 1px;
+  background: var(--hairline);
+}
+.gc-recents-header { gap: var(--sb-gap); padding-left: var(--sb-x); }
+.gc-recents-header > svg { color: var(--text-muted); }
+.gc-recents-header h2 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  color: inherit;
+  font-size: var(--fs-ui);
+  font-weight: 560;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.gc-sidebar-empty {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sb-gap);
+  padding: 6px var(--sb-x);
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+.gc-sidebar-empty > svg { margin-top: 1px; color: var(--text-faint); }
+.gc-sidebar-empty > span { min-width: 0; }
+
+/* ---- Footer dock: Activity, Search, Tools & MCP, Settings --------------- */
+.gc-sidebar-dock {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+  padding-top: 6px;
+}
+.gc-sidebar-dock::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: var(--sb-x);
+  right: var(--sb-x);
+  height: 1px;
+  background: var(--hairline);
+}
+.gc-sidebar-footer { display: flex; flex-direction: column; gap: 1px; }
+.gc-sidebar-footer > button { height: 32px; color: var(--text-secondary); }
+.gc-sidebar-footer > button > svg { color: var(--text-muted); }
+.gc-sidebar-footer .gc-kbd { flex-shrink: 0; }
+/* Search reads as an input well. */
+.gc-sidebar-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 1;
+  min-width: 0;
+  height: var(--chrome-row);
+  padding: 0 8px;
+  border-radius: var(--radius-md);
+  font-size: var(--fs-meta);
+  text-align: left;
+  color: var(--text-muted);
+  background: var(--surface-inset);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong), var(--well-shadow);
+}
+/* The 15px glyph sits centred in the 16px slot so "Search" starts on --sb-text. */
+.gc-sidebar-search > svg { margin: 0 .5px; color: var(--text-faint); }
+
+.gc-sidebar-search > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gc-sidebar-search > .gc-kbd { flex-shrink: 0; }
+@container sidebar-top (max-width: 200px) { .gc-sidebar-search > .gc-kbd { display: none; } }
+
+/* ---- Hover: pointer devices only; instant in, 150ms out ---------------- */
+@media (hover: hover) and (pointer: fine) {
+  .gc-sidebar-new:hover {
+    background: var(--fill-hover);
+    color: var(--text-primary);
+    transition: background-color 0ms, color 0ms, transform var(--dur-fast) var(--ease-out);
+  }
+  .gc-sidebar-icon:hover:not(:disabled) {
+    color: var(--text-primary);
+    background: var(--fill-hover);
+    transition: color 0ms, background-color 0ms, opacity 0ms, transform var(--dur-fast) var(--ease-out);
+  }
+  .gc-sidebar-add-project:hover,
+  .gc-sidebar-footer > button:hover {
+    color: var(--text-primary);
+    background-color: var(--fill-hover);
+    transition: background-color 0ms, color 0ms, box-shadow 0ms, transform var(--dur-fast) var(--ease-out);
+  }
+  .gc-sidebar-footer > button:hover > svg { color: var(--text-secondary); }
+  .gc-sidebar-search:hover {
+    background-color: var(--surface-inset);
+    color: var(--text-secondary);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink-hairline) 20%, transparent), var(--well-shadow);
+  }
+
+  .gc-project-group-header:not(.gc-recents-header):hover {
+    background-color: var(--fill-hover);
+    transition: background-color 0ms, color 0ms, transform var(--dur-fast) var(--ease-out);
+  }
+  .gc-project-group:not(:has(.gc-sidebar-chat.active)) > .gc-project-group-header.active:hover { background-color: var(--fill-pressed); }
+  .gc-project-group-header:hover .gc-project-collapse { color: var(--text-muted); transition-duration: 0ms; }
+  .gc-project-group-header .gc-project-collapse:hover { color: var(--text-primary); }
+
+  /* Secondary actions wait for hover or focus. */
+  .gc-sidebar-row-action { opacity: 0; pointer-events: none; }
+  .gc-project-group-header:hover .gc-sidebar-row-action,
+  .gc-project-group-header:focus-within .gc-sidebar-row-action,
+  .gc-sidebar-row-action[data-state="delayed-open"],
+  .gc-sidebar-row-action[data-state="instant-open"] {
+    opacity: 1;
+    pointer-events: auto;
+    transition: color 0ms, background-color 0ms, opacity 0ms, transform var(--dur-fast) var(--ease-out);
+  }
+
+  .gc-sidebar-chat:hover {
+    background-color: var(--fill-hover);
+    transition: background-color 0ms, transform var(--dur-fast) var(--ease-out);
+  }
+  .gc-sidebar-chat:hover .gc-sidebar-chat-title { color: var(--text-primary); transition-duration: 0ms; }
+
+  .gc-sidebar-chat-delete { opacity: 0; pointer-events: none; }
+  .gc-sidebar-chat-delete:disabled { opacity: 0; }
+  .gc-sidebar-chat:hover .gc-sidebar-chat-delete,
+  .gc-sidebar-chat:focus-within .gc-sidebar-chat-delete {
+    opacity: 1;
+    pointer-events: auto;
+    transition: opacity 0ms, color var(--sb-fade) ease, background-color var(--sb-fade) ease, transform var(--dur-fast) var(--ease-out);
+  }
+  .gc-sidebar-chat:hover .gc-sidebar-chat-delete:disabled,
+  .gc-sidebar-chat:focus-within .gc-sidebar-chat-delete:disabled { opacity: .35; }
+  .gc-sidebar-chat-delete:hover:not(:disabled) {
+    color: var(--error);
+    background-color: var(--error-subtle);
+    transition: opacity 0ms, color 0ms, background-color 0ms, transform var(--dur-fast) var(--ease-out);
+  }
+  .gc-sidebar-chat-text { -webkit-mask-image: none; mask-image: none; }
+  .gc-sidebar-chat:hover .gc-sidebar-chat-text,
+  .gc-sidebar-chat:focus-within .gc-sidebar-chat-text {
+    -webkit-mask-image: linear-gradient(to left, transparent 22px, #000 44px);
+    mask-image: linear-gradient(to left, transparent 22px, #000 44px);
+  }
+
+  .gc-sidebar-show-more:hover { color: var(--text-primary); transition-duration: 0ms; }
+}

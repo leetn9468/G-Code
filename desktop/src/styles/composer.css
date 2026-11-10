@@ -1,0 +1,514 @@
+/* G-Code Desktop — composer: floating card, toolbar pills, send ⇄ stop, caption,
+   session controls (effort / permissions / context), the context dialog and the
+   tool-approval tray docked above the card. */
+
+/* ---- Region ------------------------------------------------------------ */
+/* Gutters match the message scroller's 32px side padding (chat.css), so the
+   card keeps the reading column's edges at every panel width. */
+.gc-input-region {
+  width: 100%;
+  max-width: calc(var(--content-width) + 64px);
+  margin: 0 auto;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 32px 14px;
+}
+/* ---- Card -------------------------------------------------------------- */
+.gc-composer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 12px 10px;
+  border-radius: var(--radius-3xl);
+  background: var(--surface-elevated);
+  /* Same layer list as the focused state below, so the ring fades in place. */
+  box-shadow: 0 0 0 1px var(--accent-clear), 0 0 0 4px var(--accent-clear), var(--elev-floating);
+  cursor: text;
+  transition: box-shadow 150ms var(--ease-out);
+  container: composer / inline-size;
+}
+/* The card ring is the textarea's focus indicator (its own outline is off);
+   toolbar pills draw their own ring, so it keys on the textarea only. A 32%
+   hairline read at ~2:1; this ring is ~4.5:1 against the panel. */
+.gc-composer:has(textarea:focus-visible) {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent), 0 0 0 4px var(--accent-subtle), var(--elev-floating);
+}
+
+.gc-composer textarea {
+  display: block;
+  width: 100%;
+  min-height: 50px;
+  max-height: 200px;
+  /* No vertical padding: resize() caps scrollHeight at exactly 8 × 25px, so
+     padding would make the eighth line scroll. The 2px nudge is a margin. */
+  margin-top: 2px;
+  padding: 0 6px;
+  resize: none;
+  overflow-y: auto;
+  color: var(--text-primary);
+  font-size: var(--fs-chat);
+  line-height: 25px;
+  outline: none;
+}
+.gc-composer textarea:focus-visible { outline: none; }
+.gc-composer textarea::placeholder { color: var(--text-muted); opacity: 1; }
+.gc-composer textarea:disabled { cursor: default; }
+
+/* ---- Toolbar ----------------------------------------------------------- */
+.gc-composer-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 2px;
+  min-width: 0;
+}
+.gc-composer-spacer { flex: 1 1 0; min-width: 8px; }
+.gc-toolbar-divider { width: 1px; height: 16px; margin: 0 5px; flex-shrink: 0; background: var(--hairline-strong); border-radius: 1px; }
+
+/* Pills: model, project, effort, permissions, context. Quiet until hovered. */
+.gc-composer-pill,
+.gc-control-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: 30px;
+  padding: 0 9px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  font-size: var(--fs-meta);
+  font-weight: 500;
+  line-height: 18px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out), transform var(--dur-instant) var(--ease-out);
+}
+.gc-composer-pill > svg,
+.gc-control-pill > svg { flex-shrink: 0; color: var(--text-muted); transition: color 150ms var(--ease-out); }
+.gc-composer-pill > span,
+.gc-control-pill-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.gc-pill-chevron { margin-left: -2px; opacity: .8; }
+/* Hover colours land instantly; press scale keeps its short ease (third value). */
+@media (hover: hover) and (pointer: fine) {
+  .gc-composer-pill:hover:not(:disabled),
+  .gc-control-pill:hover:not(:disabled) { background: var(--fill-hover); color: var(--text-primary); transition-duration: 0ms, 0ms, var(--dur-instant); }
+  .gc-composer-pill:hover:not(:disabled) > svg,
+  .gc-control-pill:hover:not(:disabled) > svg { color: var(--text-secondary); transition-duration: 0ms; }
+}
+.gc-composer-pill:active:not(:disabled),
+.gc-control-pill:active:not(:disabled) { transform: scale(.96); background: var(--fill-pressed); }
+.gc-control-pill[aria-expanded="true"] { background: var(--fill-pressed); color: var(--text-primary); }
+.gc-composer-pill:disabled,
+.gc-control-pill:disabled { opacity: var(--disabled-opacity); cursor: not-allowed; }
+.gc-composer-pill:focus-visible,
+.gc-control-pill:focus-visible { outline-offset: 1px; border-radius: var(--radius-full); }
+
+/* Model and project pills give way first, with an ellipsis, instead of the row
+   wrapping. In a wrapping flex row items break onto a new line before any of
+   them shrinks, so these two start from their fixed parts only (basis = padding,
+   mark, gaps, chevron) and grow ahead of the spacer up to their natural width;
+   the label caps live on the inner spans. The row wraps only if the fixed
+   controls themselves no longer fit. */
+.gc-model-picker { flex: 1000 1 56px; max-width: max-content; padding-left: 6px; font-weight: 550; color: var(--text-primary); }
+.gc-model-picker > span { max-width: clamp(96px, 34cqi, 320px); }
+.gc-composer-project { flex: 1000 1 40px; max-width: max-content; }
+.gc-composer-project > span { max-width: clamp(64px, 14cqi, 140px); }
+
+/* ---- Send ⇄ Stop: one fixed slot, right-anchored crossfade -------------
+   The slot reserves the Stop pill's width, so starting or stopping a turn
+   never reflows the toolbar; the spare room reads as part of the spacer.
+   Outgoing and incoming controls share one grid cell instead of Motion's
+   popLayout, which injects a <style> per exit and makes WebKit restyle and
+   relayout the whole document (~25 ms with a chat open). */
+.gc-send-slot {
+  position: relative;
+  display: grid;
+  align-items: center;
+  justify-items: end;
+  min-width: 72px;
+  height: 32px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.gc-send-swap { display: inline-flex; grid-area: 1 / 1; }
+
+.gc-send-button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  color: var(--text-faint);
+  background: var(--fill-hover);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out), box-shadow 150ms var(--ease-out), transform var(--dur-instant) var(--ease-out);
+}
+.gc-send-button.is-ready {
+  color: var(--text-on-accent);
+  background: var(--accent-solid);
+  box-shadow: var(--control-shadow);
+}
+/* transition order: background-color, color, box-shadow, transform. */
+.gc-send-button.is-ready:hover { background: var(--accent-solid-hover); transition-duration: 0ms, 0ms, 0ms, var(--dur-instant); }
+.gc-send-button:active:not(:disabled) { transform: scale(.96); }
+.gc-send-button:disabled { cursor: not-allowed; }
+.gc-send-button:focus-visible { outline-offset: 2px; border-radius: var(--radius-full); }
+
+.gc-abort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 13px 0 12px;
+  border-radius: var(--radius-full);
+  color: var(--text-primary);
+  background: var(--fill-pressed);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong), var(--highlight-top);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background-color 150ms var(--ease-out), box-shadow 150ms var(--ease-out), transform var(--dur-instant) var(--ease-out);
+}
+.gc-abort-button > svg { flex-shrink: 0; }
+@media (hover: hover) and (pointer: fine) {
+  .gc-abort-button:hover { background: color-mix(in srgb, var(--ink-hairline) 14%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink-hairline) 20%, transparent), var(--highlight-top); transition-duration: 0ms, 0ms, var(--dur-instant); }
+}
+.gc-abort-button:active { transform: scale(.96); }
+.gc-abort-button:focus-visible { outline-offset: 2px; border-radius: var(--radius-full); }
+
+/* ---- Caption under the card -------------------------------------------- */
+.gc-composer-caption {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 20px;
+  /* Card padding (12) + textarea padding (6): the hint and the count share the
+     text's left and right edges. */
+  padding: 0 18px;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  line-height: 20px;
+}
+.gc-input-hint { position: relative; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.gc-input-hint.is-active { color: var(--text-secondary); }
+/* Old and new hint crossfade in one grid cell (no popLayout, see .gc-send-slot). */
+.gc-input-hint-text { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; overflow-wrap: anywhere; }
+.gc-input-hint-text > span { display: block; grid-area: 1 / 1; }
+.gc-character-count { margin-left: auto; flex-shrink: 0; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--text-muted); }
+
+/* A docked approval tray means the run is blocked on the user, not working, and
+   nothing loops unless work is in progress (spec §3). The caption takes the
+   tool row's amber, the spinner settles into a static dot (same 12px slot, so
+   the text does not shift), the shimmer stops, and the inert composer drops
+   its "working" placeholder while the tray above carries the prompt. */
+.gc-input-region:has(> .gc-approval-tray) .gc-input-hint { color: var(--warning); }
+.gc-input-region:has(> .gc-approval-tray) .gc-input-hint .gc-spinner {
+  width: 6px;
+  height: 6px;
+  margin: 0 3px;
+  border: 0;
+  background: var(--warning);
+  animation: none;
+}
+.gc-input-region:has(> .gc-approval-tray) .gc-input-hint .gc-shimmer-text { color: inherit; background: none; animation: none; }
+.gc-input-region:has(> .gc-approval-tray) .gc-composer textarea::placeholder { color: transparent; }
+
+/* ---- Session controls (inside the toolbar) ----------------------------- */
+.gc-session-controls { display: inline-flex; align-items: center; gap: 2px; min-width: 0; }
+.gc-permission-bypass,
+.gc-permission-bypass > svg { color: var(--warning); }
+@media (hover: hover) and (pointer: fine) {
+  .gc-control-pill.gc-permission-bypass:hover:not(:disabled),
+  .gc-control-pill.gc-permission-bypass:hover:not(:disabled) > svg { color: var(--warning); }
+}
+
+.gc-context-trigger .gc-control-pill-label { font-variant-numeric: tabular-nums; }
+.gc-context-ring { transform: rotate(-90deg); }
+.gc-context-ring circle { fill: none; stroke-width: 2.25; }
+.gc-context-ring-track { stroke: color-mix(in srgb, var(--ink-hairline) 17%, transparent); }
+.gc-context-ring-value {
+  stroke: var(--accent);
+  stroke-linecap: round;
+  transition: stroke-dashoffset var(--dur-slow) var(--ease-out), stroke var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out);
+}
+.gc-context-trigger.is-warning .gc-context-ring-value { stroke: var(--warning); }
+.gc-context-trigger.is-critical .gc-context-ring-value { stroke: var(--error); }
+@media (prefers-reduced-motion: reduce) {
+  .gc-context-ring-value { transition: none; }
+}
+
+/* Bypass note: its own quiet line at the foot of the toolbar. */
+.gc-controls-note {
+  order: 99;
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 2px 8px 0;
+  color: var(--warning);
+  font-size: var(--fs-meta);
+  line-height: 18px;
+  opacity: .9;
+}
+.gc-controls-note > svg { flex-shrink: 0; }
+
+/* Menus (Radix) — base styles are .gc-menu* in global.css. */
+.gc-session-menu { width: 300px; padding: 6px; }
+/* Meta text floor is 13px; the shared .gc-menu-label is 12px. */
+.gc-session-menu .gc-menu-label { font-size: var(--fs-meta); }
+.gc-session-menu.is-wide { width: 330px; }
+.gc-session-menu .gc-menu-item { align-items: flex-start; padding-top: 8px; padding-bottom: 8px; }
+.gc-session-menu .gc-menu-item-indicator { top: 10px; translate: none; }
+.gc-session-menu .gc-menu-item-copy > span { color: inherit; font-weight: 520; }
+.gc-session-menu .gc-menu-item-copy small { font-size: var(--fs-meta); line-height: 1.45; text-wrap: pretty; }
+.gc-session-menu .gc-menu-item.is-bypass .gc-menu-item-copy > span,
+.gc-session-menu .gc-menu-item.is-bypass .gc-menu-item-indicator { color: var(--warning); }
+.gc-menu-footnote { padding: 4px 10px 6px; color: var(--text-muted); font-size: var(--fs-meta); line-height: 1.45; }
+
+/* ---- Compact layouts (container = the composer card) ------------------- */
+@container composer (max-width: 700px) {
+  .gc-composer-project > span { display: none; }
+  .gc-composer-project { flex: none; padding: 0 8px; }
+}
+@container composer (max-width: 600px) {
+  .gc-control-pill .gc-pill-chevron { display: none; }
+}
+@container composer (max-width: 480px) {
+  .gc-session-controls .gc-control-pill:not(.gc-context-trigger) .gc-control-pill-label { display: none; }
+  .gc-toolbar-divider { display: none; }
+}
+@media (max-width: 720px) {
+  .gc-input-region { padding: 8px 18px 12px; }
+  .gc-composer { padding: 12px 10px 10px; }
+  .gc-composer-caption { padding: 0 16px; }
+}
+
+/* ---- Tool approval tray (docked above the composer) -------------------- */
+.gc-approval-tray {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 14px 12px 16px;
+  border-radius: var(--radius-2xl);
+  background: var(--surface-elevated);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warning) 26%, transparent), var(--elev-floating);
+  outline: none;
+}
+.gc-approval-tray:focus-visible { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warning) 50%, transparent), var(--elev-floating); outline: none; border-radius: var(--radius-2xl); }
+
+.gc-approval-actions .gc-btn-ghost .gc-kbd { color: var(--text-secondary); }
+.gc-approval-header { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.gc-approval-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: var(--radius-lg);
+  color: var(--warning);
+  background: var(--warning-subtle);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warning) 16%, transparent);
+}
+.gc-approval-heading { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.gc-approval-heading h2 { margin: 0; color: var(--text-primary); font-size: var(--fs-body); font-weight: 600; line-height: 20px; text-wrap: balance; }
+.gc-approval-heading span { color: var(--text-muted); font-size: var(--fs-meta); line-height: 18px; }
+.gc-approval-tool {
+  margin-left: auto;
+  max-width: 45%;
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  color: var(--text-primary);
+  background: var(--fill-pressed);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+  font: 550 var(--fs-meta)/18px var(--font-mono);
+}
+
+.gc-approval-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* The tray shares the panel height with the transcript and the composer;
+     at the 720px window minimum this keeps the card and caption on screen. */
+  max-height: min(32vh, 340px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* It is the tray's one scroller and takes keyboard focus. 4px of room
+     (cancelled by the negative margin, so content does not move) lets the
+     radius round the focus ring without clipping text or the 10px wells. */
+  margin: -4px;
+  padding: 4px;
+  border-radius: var(--radius-xl);
+}
+.gc-approval-body:focus-visible { outline-offset: 0; }
+.gc-approval-body p { margin: 0; color: var(--text-secondary); font-size: var(--fs-ui); line-height: 1.55; text-wrap: pretty; }
+.gc-approval-path {
+  padding: 7px 10px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-inset);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--text-primary);
+  font: var(--fs-meta)/1.5 var(--font-mono);
+  overflow-wrap: anywhere;
+}
+/* Who asks (a workflow agent or sub-agent): the label reads as the value, the rest as its caption. */
+.gc-approval-origin { color: var(--text-secondary); }
+.gc-approval-origin bdi { color: var(--text-primary); font-weight: 550; }
+.gc-approval-reason {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-lg);
+  background: var(--warning-subtle);
+  color: var(--text-primary);
+  font-size: var(--fs-meta);
+  line-height: 1.5;
+}
+.gc-approval-reason > svg { margin-top: 2px; color: var(--warning); }
+.gc-approval-reason > span { min-width: 0; overflow-wrap: anywhere; }
+/* No nested scroller: the body scrolls (and is focusable) for the whole request. */
+.gc-approval-input {
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-inset);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--text-secondary);
+  font: var(--fs-meta)/1.55 var(--font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.gc-approval-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.gc-approval-timeout { min-width: 0; color: var(--text-muted); font-size: var(--fs-meta); }
+.gc-approval-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.gc-approval-actions .gc-btn { min-height: 32px; padding: 0 8px 0 14px; border-radius: var(--radius-full); }
+.gc-approval-actions .gc-kbd { min-width: 22px; height: 20px; border-radius: var(--radius-full); }
+
+/* ---- Context window dialog (opened from the composer) ------------------ */
+.gc-context-dialog { min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 20px 24px 24px; }
+/* Header metrics follow the shared dialog header in overlays.css
+   (36px icon tile, --fs-title 22/28 title). */
+.gc-context-dialog header { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+.gc-context-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: var(--radius-lg);
+  color: var(--text-secondary);
+  background: var(--fill-hover);
+  box-shadow: inset 0 0 0 1px var(--hairline), var(--highlight-top);
+}
+.gc-context-dialog h2 { min-width: 0; margin: 0; color: var(--text-primary); font-size: var(--fs-title); font-weight: 620; line-height: 28px; letter-spacing: -0.016em; text-wrap: balance; }
+/* Hover and press fills come from .gc-btn-icon; only the hit area is set here. */
+.gc-context-dialog header .gc-panel-close { width: 32px; height: 32px; margin-left: auto; }
+
+.gc-context-summary { display: flex; flex-direction: column; gap: 10px; }
+.gc-context-total {
+  display: block;
+  color: var(--text-primary);
+  font-size: 30px;
+  font-weight: 650;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.gc-context-total small { color: var(--text-muted); font-size: var(--fs-body); font-weight: 450; letter-spacing: 0; }
+.gc-context-meter-row { display: flex; align-items: center; gap: 12px; }
+.gc-context-meter {
+  flex: 1;
+  height: 6px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--ink-hairline) 12%, transparent);
+}
+.gc-context-meter i { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
+.gc-context-meter.is-warning i { background: var(--warning); }
+.gc-context-meter.is-critical i { background: var(--error); }
+.gc-context-pct { flex-shrink: 0; min-width: 4ch; text-align: right; color: var(--text-secondary); font-size: var(--fs-meta); font-weight: 550; font-variant-numeric: tabular-nums; }
+
+.gc-context-dialog p { margin: 0; color: var(--text-muted); font-size: var(--fs-meta); line-height: 1.55; text-wrap: pretty; }
+.gc-context-dialog .gc-context-source { margin-top: 2px; }
+.gc-context-group { margin-top: 18px; }
+.gc-context-dialog .gc-context-caption { margin-bottom: 6px; color: var(--text-secondary); font-weight: 550; }
+.gc-context-dialog dl { margin: 0; }
+.gc-context-dialog dl div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 7px 0;
+  font-size: var(--fs-meta);
+  box-shadow: inset 0 -1px 0 var(--hairline);
+}
+.gc-context-dialog dl div:last-child { box-shadow: none; }
+.gc-context-dialog dt { min-width: 0; color: var(--text-muted); }
+.gc-context-dialog dd { margin: 0; flex-shrink: 0; color: var(--text-primary); font-weight: 520; font-variant-numeric: tabular-nums; }
+.gc-context-dialog .gc-context-footnote { margin-top: 14px; }
+.gc-context-dialog .gc-context-empty { padding: 4px 0 2px; color: var(--text-secondary); font-size: var(--fs-ui); }
+
+.gc-compact-form {
+  display: flex;
+  flex-direction: column;
+  margin-top: 22px;
+  padding-top: 20px;
+  box-shadow: inset 0 1px 0 var(--hairline-strong);
+}
+.gc-compact-form h3 { margin: 0 0 4px; color: var(--text-primary); font-size: var(--fs-body); font-weight: 600; text-wrap: balance; }
+.gc-compact-form label { display: block; margin: 14px 0 6px; color: var(--text-secondary); font-size: var(--fs-meta); font-weight: 550; }
+.gc-compact-form label span { color: var(--text-muted); font-weight: 450; }
+.gc-compact-form textarea {
+  width: 100%;
+  min-height: 84px;
+  resize: vertical;
+  padding: 10px 12px;
+  border-radius: var(--radius-xl);
+  background: var(--surface-inset);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--fs-ui);
+  line-height: 1.5;
+  transition: box-shadow 150ms var(--ease-out);
+}
+.gc-compact-form textarea::placeholder { color: var(--text-muted); opacity: 1; }
+/* Same focus ring as the shared dialog fields (.gc-field-input in overlays.css);
+   a 32% hairline alone was too faint to read as focus on the inset well. */
+.gc-compact-form textarea:focus-visible {
+  outline: none;
+  border-radius: var(--radius-xl);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent), 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.gc-compact-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 14px; }
+.gc-compact-actions small { margin-right: auto; color: var(--text-muted); font-size: var(--fs-meta); }
+
+/* Requests waiting behind the one shown (the CLI's approval queue). */
+.gc-approval-queue { display: flex; flex-direction: column; gap: 4px; }
+.gc-approval-queue > span { color: var(--text-muted); font-size: var(--fs-meta); line-height: 1.5; }
+.gc-approval-queue ol {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 7px 10px 7px 28px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-inset);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--text-secondary);
+  font: var(--fs-meta)/1.5 var(--font-mono);
+}
+.gc-approval-queue li { overflow-wrap: anywhere; }

@@ -1,0 +1,67 @@
+/* G-Code Desktop — New project dialog. Header, footer and fields come from
+   the shared dialog parts in overlays.css (.gc-modal-*, .gc-field*); the
+   wells are the shared .gc-input-well. */
+
+.gc-project-form { display: flex; flex-direction: column; gap: 18px; padding: 6px 24px 24px; }
+
+/* Location picker: an input well that opens the folder dialog. Paired with
+   .gc-input-well so it overrides the shared well's padding whatever the
+   stylesheet order. */
+.gc-input-well.gc-project-location {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px 0 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.gc-project-location > svg:first-child { color: var(--text-muted); }
+.gc-project-location > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-ui); }
+.gc-project-location.empty > span { color: var(--text-muted); }
+.gc-project-location-chevron { color: var(--text-faint); transition: color var(--dur-hover) var(--ease-hover), transform var(--dur-fast) var(--ease-out); }
+@media (hover: hover) and (pointer: fine) {
+  .gc-project-location:hover:not(:disabled) { background: color-mix(in srgb, var(--ink-hairline) 3.5%, transparent); transition-duration: 0ms; }
+  .gc-project-location:hover:not(:disabled) .gc-project-location-chevron { color: var(--text-secondary); transform: translateX(2px); transition-duration: 0ms; }
+}
+.gc-project-location:active:not(:disabled) { background: var(--fill-hover); }
+.gc-project-location:disabled { cursor: not-allowed; }
+/* A button rings from the keyboard only, not after a click opens the picker. */
+.gc-input-well.gc-project-location:focus:not(:focus-visible) { box-shadow: inset 0 0 0 1px var(--hairline-strong); }
+
+/* Path preview: where the folder will be created. */
+.gc-project-path {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: -8px 0 0;
+  padding-left: 4px;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  line-height: 18px;
+}
+.gc-project-path > svg { flex-shrink: 0; margin-top: 2px; color: var(--text-faint); }
+.gc-project-path > span { min-width: 0; overflow-wrap: anywhere; }
+
+.gc-project-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  color: var(--error);
+  background: var(--error-subtle);
+  font-size: var(--fs-meta);
+  line-height: 19px;
+}
+.gc-project-error > svg { flex-shrink: 0; margin-top: 2px; }
+.gc-project-error > span { min-width: 0; overflow-wrap: anywhere; }
+
+/* Full-width primary action; the label is a direct text node (.gc-btn dims spans). */
+.gc-project-form .gc-project-create { width: 100%; min-height: 40px; margin-top: 4px; font-size: var(--fs-body); }
+
+.gc-project-modal-footer .gc-btn { min-height: 30px; padding: 0 12px 0 10px; gap: 7px; border-radius: var(--radius-md); font-size: var(--fs-meta); }
+
+@media (prefers-reduced-motion: reduce) {
+  .gc-project-location-chevron { transform: none !important; }
+}

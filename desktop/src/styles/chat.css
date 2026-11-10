@@ -1,0 +1,959 @@
+/* G-Code Desktop — conversation panel: header, message stream, messages,
+   markdown, code blocks, tool-call trace rows and the welcome state.
+   Depth from elevation and hairlines; azure only for focus, selection and the
+   primary action; success is green. Motion: hovers instant in / 150ms out, entrances via
+   .gc-enter (global.css), reduced motion handled by tokens.css. */
+
+/* ===== Panel ============================================================== */
+.gc-chat {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--background);
+  /* Shared gutter: the assistant mark and tool status icons share one column. */
+  --gc-gutter: 34px;
+}
+
+/* ===== Header ============================================================= */
+/* No title row above the panel any more: the panel runs up to the window top
+   and its first row (breadcrumb, first header icon) sits on the traffic-light
+   axis (--chrome-axis). The icon column floats at the upper right over the
+   stream's empty margin, so the header itself stays one row tall. */
+.gc-chat-header {
+  position: relative;
+  z-index: 3;
+  flex-shrink: 0;
+  height: var(--chat-header-height);
+  padding: var(--chat-header-inset) 56px 0 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: var(--background);
+}
+/* Sidebar hidden: the traffic lights and the sidebar toggle sit over the
+   panel's top-left corner, so the breadcrumb starts after them. */
+.gc-workbench.is-sidebar-hidden .gc-chat-header { padding-left: calc(var(--titlebar-collapsed-width) - var(--panel-gap) + 8px); }
+.gc-workbench.is-sidebar-animating .gc-chat-header { transition: padding-left var(--dur-slow) var(--ease-drawer); }
+/* Content scrolls under a soft fade instead of a hard edge. */
+.gc-chat:not(.gc-chat-welcome) .gc-chat-header::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 12px; /* keep the scrollbar clear */
+  height: 20px;
+  background: linear-gradient(to bottom, var(--background), var(--background-clear));
+  pointer-events: none;
+}
+
+.gc-chat-breadcrumb {
+  min-width: 0;
+  height: var(--chrome-row);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.gc-project-breadcrumb {
+  min-width: 0;
+  max-width: 320px;
+  height: var(--chrome-row);
+  margin-left: -8px;
+  padding: 0 10px 0 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: var(--fs-ui);
+  font-weight: 520;
+  transition: background-color var(--dur-hover) var(--ease-hover), color var(--dur-hover) var(--ease-hover), transform var(--dur-instant) var(--ease-out);
+}
+.gc-project-breadcrumb svg { flex-shrink: 0; color: var(--text-muted); transition: color var(--dur-hover) var(--ease-hover); }
+.gc-project-breadcrumb span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gc-project-breadcrumb:hover { background: var(--fill-hover); color: var(--text-primary); transition-duration: 0ms, 0ms, var(--dur-instant); }
+.gc-project-breadcrumb:hover svg { color: var(--text-secondary); transition-duration: 0ms; }
+.gc-project-breadcrumb:active { transform: scale(.96); background: var(--fill-pressed); }
+.gc-breadcrumb-divider { color: var(--text-faint); font-size: 15px; line-height: 1; user-select: none; -webkit-user-select: none; }
+.gc-chat-heading {
+  min-width: 0;
+  max-width: 60ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: var(--fs-ui);
+}
+.gc-chat-header-spacer { flex: 1; align-self: stretch; min-width: 8px; }
+
+/* Local/Cloud, Terminal, Outputs, then Changes, Files, Browser and Tasks:
+   icons only, no frame (user decision 2026-10-16), stacked at the upper
+   right. The first sits on the breadcrumb row; the column overlaps the
+   stream's right margin, never the text column (see "Responsive"). Seven
+   rows are 7 × 28 + 6 × 2 = 208px from a 4px inset: at the 720px minimum
+   window height that ends ~470px above the composer. */
+.gc-chat-header-actions {
+  position: absolute;
+  /* Above the header's bottom fade, which the column extends past. */
+  z-index: 1;
+  top: var(--chat-header-inset);
+  right: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.gc-header-icon {
+  position: relative;
+  width: var(--chrome-row);
+  height: var(--chrome-row);
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  transition: background-color var(--dur-hover) var(--ease-hover), color var(--dur-hover) var(--ease-hover), transform var(--dur-instant) var(--ease-out);
+}
+.gc-header-icon:hover:not(:disabled) { background: var(--fill-hover); color: var(--text-primary); transition-duration: 0ms, 0ms, var(--dur-instant); }
+.gc-header-icon:active:not(:disabled) { transform: scale(.96); background: var(--fill-pressed); }
+.gc-header-icon:disabled { opacity: var(--disabled-opacity); }
+.gc-header-icon[aria-pressed="true"] { color: var(--text-primary); background: var(--fill-selected); }
+/* Cloud is not configured: a small warning dot on the glyph. */
+.gc-header-icon-warning {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--warning);
+  box-shadow: 0 0 0 1.5px var(--background);
+}
+/* Background tasks running: a breathing yellow dot (the session light's
+   "running"); a hollow ring when motion is reduced, so it never reads as a
+   static warning. */
+.gc-header-icon-running {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--status-yellow);
+  box-shadow: 0 0 0 1.5px var(--background);
+  animation: gc-breathe 1.6s var(--ease-in-out) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gc-header-icon-running { background: transparent; box-shadow: inset 0 0 0 1.5px var(--status-yellow), 0 0 0 1.5px var(--background); }
+}
+/* Output and change counts: a small badge on the glyph's upper right. */
+.gc-header-icon small {
+  position: absolute;
+  top: 1px;
+  right: 0;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  box-shadow: 0 0 0 1.5px var(--background);
+  color: var(--text-primary);
+  font-size: var(--fs-pill);
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== Body and stream ==================================================== */
+.gc-conversation-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.gc-stream-viewport {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* The floating composer sits below; let the last lines fade into it. */
+.gc-stream-viewport::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 12px;
+  bottom: 0;
+  height: 18px;
+  background: linear-gradient(to top, var(--background), var(--background-clear));
+  pointer-events: none;
+}
+.gc-message-stream {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 12px 32px 36px;
+  /* Focus-driven scrolling keeps rows clear of the header fade (20px) and
+     of the bottom fade plus the floating jump button. */
+  scroll-padding-block: 28px 64px;
+}
+/* Older history is still mounting above; ChatArea keeps the position itself. */
+.gc-message-stream[data-backfill] { overflow-anchor: none; }
+.gc-chat-flow {
+  width: 100%;
+  max-width: var(--content-width);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+/* Rhythm: ~24px between turns. An assistant reply already ends with its
+   26px meta row, so what follows it needs less margin. */
+.gc-flow-item { min-width: 0; }
+@supports (content-visibility: auto) {
+  .gc-flow-item { content-visibility: auto; contain-intrinsic-size: auto 160px; }
+  .gc-flow-item[data-kind="user"] { contain-intrinsic-size: auto 64px; }
+  .gc-flow-item[data-kind="tools"] { contain-intrinsic-size: auto 40px; }
+}
+.gc-flow-item + .gc-flow-item { margin-top: 20px; }
+.gc-flow-item + .gc-flow-item[data-kind="user"] { margin-top: 36px; }
+.gc-flow-item[data-kind="assistant"] + .gc-flow-item[data-kind="user"] { margin-top: 22px; }
+.gc-flow-item[data-kind="assistant"] + .gc-flow-item[data-kind="tools"] { margin-top: 6px; }
+.gc-flow-item[data-kind="tools"] + .gc-flow-item[data-kind="assistant"] { margin-top: 14px; }
+
+/* Jump to latest: round, floating, centred above the composer. Motion owns
+   its transform, so centring uses a negative margin, not translate. */
+.gc-scroll-bottom-wrap {
+  position: absolute;
+  z-index: 4;
+  left: 50%;
+  bottom: 14px;
+  margin-left: -18px;
+}
+.gc-scroll-bottom {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-full);
+  background: var(--surface-elevated);
+  color: var(--text-secondary);
+  box-shadow: var(--elev-floating);
+  transition: background-color var(--dur-hover) var(--ease-hover), color var(--dur-hover) var(--ease-hover), transform var(--dur-instant) var(--ease-out);
+}
+.gc-scroll-bottom:hover { background: var(--surface-raised); color: var(--text-primary); transition-duration: 0ms, 0ms, var(--dur-instant); }
+.gc-scroll-bottom:active { transform: scale(.96); }
+
+/* ===== Messages =========================================================== */
+.gc-message { position: relative; min-width: 0; }
+.gc-message-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* User: compact right-aligned card; its time and Copy sit to its left on
+   hover, so prompts reserve no extra height. */
+.gc-message-user {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 4px;
+}
+.gc-message-user .gc-message-meta { order: -1; flex-shrink: 0; margin: 0; }
+/* Sent while a turn runs and not in the conversation yet: dimmed, "Queued"
+   beside it, until the CLI adds it (then it settles to an ordinary prompt). */
+.gc-message-user .gc-message-card { transition: opacity var(--dur-base) var(--ease-out); }
+.gc-message-user[data-pending] .gc-message-card { opacity: .64; }
+.gc-message-card {
+  max-width: min(82%, 64ch);
+  min-width: 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-2xl);
+  background: var(--surface-elevated);
+  box-shadow: var(--ring-hairline), var(--highlight-top);
+  color: var(--text-primary);
+  font-size: var(--fs-chat);
+  line-height: 1.6;
+  text-autospace: normal;
+}
+
+/* Light: the user's own messages sit on the palette's light azure (#141414 text, 12.3:1). Not a handoff's
+   continuation card: it holds Markdown, and #00638E links reach only 4.45:1 on this fill. */
+:root[data-theme="light"] .gc-message-user:not(.gc-continuation) .gc-message-card { background: #BFD8E3; box-shadow: none; }
+
+/* Assistant: no bubble; a small mark in the gutter, prose in the column. */
+.gc-message-assistant {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  column-gap: calc(var(--gc-gutter) - 20px);
+}
+.gc-message-mark {
+  height: calc(var(--fs-chat) * 1.7); /* the first line box */
+  display: flex;
+  align-items: center;
+}
+.gc-message-body {
+  min-width: 0;
+  color: var(--text-primary);
+  font-size: var(--fs-chat);
+  line-height: 1.7;
+}
+
+/* Error: a quiet red-tinted card. */
+.gc-message-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px 4px 12px;
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--error-strong) 7%, transparent);
+  box-shadow: 0 0 0 0.5px color-mix(in srgb, var(--error) 30%, transparent);
+  color: var(--text-primary);
+  font-size: var(--fs-body);
+  line-height: 1.6;
+}
+.gc-message-error-icon { flex-shrink: 0; margin-top: 4px; color: var(--error); }
+.gc-message-error-body { min-width: 0; flex: 1; }
+.gc-message-error .gc-message-meta { margin-top: 2px; }
+
+/* System: a centred muted line between hairline rules. */
+.gc-message-system {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  line-height: 1.5;
+  text-align: center;
+}
+.gc-message-system::before,
+.gc-message-system::after {
+  content: '';
+  flex: 1 1 24px;
+  height: 1px;
+  background: var(--hairline-strong);
+}
+.gc-message-system > span { max-width: 72%; text-wrap: balance; overflow-wrap: anywhere; }
+
+/* Meta row (time · tokens) and actions: quiet until hover or focus. Space is
+   always reserved so revealing it never shifts the conversation. */
+.gc-message-meta {
+  min-height: 24px;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  text-autospace: normal;
+}
+.gc-message-meta-text { white-space: nowrap; }
+.gc-message-assistant .gc-message-action { order: -1; margin-left: -5px; }
+.gc-message-action {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  transition: background-color var(--dur-hover) var(--ease-hover), color var(--dur-hover) var(--ease-hover), transform var(--dur-instant) var(--ease-out);
+}
+.gc-message-action:hover { background: var(--fill-hover); color: var(--text-primary); transition-duration: 0ms, 0ms, var(--dur-instant); }
+.gc-message-action:active { transform: scale(.96); background: var(--fill-pressed); }
+.gc-message-action[data-copied] { color: var(--success); }
+/* Scoped: settings.css owns the global .gc-icon-swap rule. Copy and check
+   crossfade in the button's one grid cell (no popLayout, see composer.css). */
+:is(.gc-message-action, .gc-code-copy) > .gc-icon-swap { display: inline-grid; place-items: center; grid-area: 1 / 1; }
+
+@media (hover: hover) and (pointer: fine) {
+  .gc-message-meta { opacity: 0; pointer-events: none; transition: opacity 150ms var(--ease-out); }
+  .gc-message:hover .gc-message-meta,
+  .gc-message[data-pinned] .gc-message-meta,
+  .gc-message[data-pending] .gc-message-meta { opacity: 1; pointer-events: auto; transition-duration: 0ms; }
+}
+.gc-message:focus-within .gc-message-meta { opacity: 1; pointer-events: auto; transition-duration: 0ms; }
+
+/* Streaming caret: a thin accent bar with a soft pulse. Static under reduced motion. */
+.gc-stream-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  border-radius: 1px;
+  vertical-align: -0.15em;
+  background: var(--accent);
+  animation: gc-caret-pulse 1s ease-in-out infinite;
+}
+@keyframes gc-caret-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .25; }
+}
+
+/* ===== Markdown =========================================================== */
+.gc-markdown {
+  overflow-wrap: break-word;
+  text-autospace: normal; /* CJK ↔ Latin spacing where supported */
+}
+.gc-markdown > :first-child { margin-top: 0; }
+.gc-markdown > :last-child { margin-bottom: 0; }
+.gc-markdown p { margin: .75em 0; }
+/* One block too long to parse as Markdown (MARKDOWN_BLOCK_CHARS): its text as written. */
+.gc-markdown .gc-md-plain { white-space: pre-wrap; overflow-wrap: anywhere; }
+.gc-markdown :is(h1, h2, h3, h4, h5, h6) {
+  margin: 1.45em 0 .5em;
+  color: var(--text-primary);
+  line-height: 1.3;
+  text-wrap: balance;
+  scroll-margin-top: 64px;
+}
+.gc-markdown h1 { font-size: 1.375em; font-weight: 620; letter-spacing: -.014em; }
+.gc-markdown h2 { font-size: 1.2em; font-weight: 600; letter-spacing: -.01em; }
+.gc-markdown h3 { font-size: 1.0625em; font-weight: 600; }
+.gc-markdown :is(h4, h5, h6) { font-size: 1em; font-weight: 600; }
+.gc-markdown :is(h5, h6) { color: var(--text-secondary); }
+.gc-markdown strong { font-weight: 640; }
+.gc-markdown em { font-style: italic; }
+.gc-markdown del { color: var(--text-muted); }
+
+/* Tailwind preflight removes list markers; restore them. */
+.gc-markdown :is(ul, ol) { margin: .75em 0; padding-left: 1.4em; }
+.gc-markdown ul { list-style: disc; }
+.gc-markdown ul ul { list-style: circle; }
+.gc-markdown ul ul ul { list-style: square; }
+.gc-markdown ol { list-style: decimal; }
+.gc-markdown li { margin: .3em 0; padding-left: .2em; }
+.gc-markdown li::marker { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.gc-markdown li > :is(ul, ol) { margin: .3em 0; }
+.gc-markdown li > p { margin: .4em 0; }
+.gc-markdown li.task-list-item { list-style: none; }
+.gc-markdown li.task-list-item > input[type="checkbox"] { margin: 0 .5em 0 -1.35em; vertical-align: -.1em; accent-color: var(--accent); }
+
+.gc-markdown hr { height: 1px; margin: 1.6em 0; border: 0; background: var(--hairline-strong); }
+.gc-markdown blockquote {
+  margin: .9em 0;
+  padding: .05em 0 .05em 1em;
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--ink-hairline) 24%, transparent);
+  color: var(--text-secondary);
+}
+.gc-markdown a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  text-underline-offset: 3px;
+  transition: text-decoration-color var(--dur-hover) var(--ease-hover);
+}
+.gc-markdown a:hover { text-decoration-color: currentColor; transition-duration: 0ms; }
+.gc-markdown img { max-width: 100%; border-radius: var(--radius-md); outline: 1px solid oklch(1 0 0 / .1); outline-offset: -1px; }
+
+/* Inline code: a chip, not a box. */
+.gc-markdown :not(pre) > code {
+  padding: .12em .4em;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--ink-hairline) 10%, transparent);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: .875em;
+  font-variant-ligatures: none;
+  overflow-wrap: anywhere;
+}
+
+/* Tables: rounded hairline frame that hugs the data, row hairlines only,
+   a quiet meta-size header, sideways scroll when wide. */
+.gc-md-table {
+  width: fit-content;
+  max-width: 100%;
+  margin: 1em 0;
+  overflow-x: auto;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--hairline-strong);
+  overscroll-behavior-x: contain;
+}
+.gc-md-table table {
+  width: max-content;
+  min-width: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: .9375em;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+.gc-md-table :is(th, td) { padding: 8px 12px; border-bottom: 1px solid var(--hairline); text-align: left; vertical-align: top; }
+.gc-md-table th { background: transparent; color: var(--text-muted); font-size: var(--fs-meta); font-weight: 550; border-bottom-color: var(--hairline-strong); }
+.gc-md-table tbody tr:last-child td { border-bottom: 0; }
+
+/* ===== Code blocks ======================================================== */
+.gc-code {
+  position: relative;
+  margin: 1em 0;
+  border-radius: var(--radius-xl);
+  background: var(--surface-inset);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink-hairline) 10%, transparent), var(--code-highlight);
+  overflow: hidden;
+}
+.gc-code-header {
+  height: 34px;
+  padding: 0 4px 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--code-header-wash);
+}
+.gc-code-lang {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  font-weight: 500;
+  line-height: 1;
+}
+.gc-code-actions { display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.gc-code-copied { color: var(--success-text); font-size: var(--fs-meta); font-weight: 500; padding-right: 2px; }
+.gc-code-copy {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  opacity: .72;
+  transition: opacity var(--dur-hover) var(--ease-hover), background-color var(--dur-hover) var(--ease-hover), color var(--dur-hover) var(--ease-hover), transform var(--dur-instant) var(--ease-out);
+}
+.gc-code:hover .gc-code-copy,
+.gc-code:focus-within .gc-code-copy,
+.gc-code-copy[data-copied] { opacity: 1; transition-duration: 0ms, 150ms, 150ms, var(--dur-instant); }
+.gc-code-copy:hover { background: color-mix(in srgb, var(--ink-hairline) 8.5%, transparent); color: var(--text-primary); transition-duration: 0ms, 0ms, 0ms, var(--dur-instant); }
+.gc-code-copy:active { transform: scale(.96); }
+.gc-code-copy[data-copied] { color: var(--success); }
+
+.gc-code-viewport { position: relative; overflow: hidden; }
+/* Collapsed while still streaming: follow the newest lines. */
+.gc-code-viewport[data-tail] { display: flex; flex-direction: column; justify-content: flex-end; }
+.gc-code-viewport[data-tail] > .gc-code-scroll { flex-shrink: 0; }
+.gc-code-scroll { overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; }
+.gc-code-scroll[data-overflow] {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+}
+.gc-code-pre {
+  margin: 0;
+  padding: 2px 0 14px;
+  background: transparent;
+  /* 13.5px at the default 16px chat size; never below the 13px floor at 15px. */
+  font: 400 max(var(--fs-meta), calc(var(--fs-chat) * .84375)) / 1.7 var(--font-mono);
+  font-variant-ligatures: none;
+  tab-size: 2;
+  white-space: pre;
+}
+.gc-code-pre code {
+  display: grid;
+  width: max-content;
+  min-width: 100%;
+  font: inherit;
+}
+.gc-code-line { display: block; padding: 0 18px 0 14px; }
+
+/* Line numbers: generated content, so they are neither copied nor read aloud. */
+.gc-code[data-numbered] .gc-code-pre code { counter-reset: ln; }
+.gc-code[data-numbered] .gc-code-line { padding-left: 10px; }
+.gc-code[data-numbered] .gc-code-line::before {
+  counter-increment: ln;
+  content: counter(ln);
+  content: counter(ln) / "";
+  display: inline-block;
+  min-width: 3ch;
+  margin-right: 14px;
+  text-align: right;
+  color: var(--text-gutter);
+  font-variant-numeric: tabular-nums;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Diff / patch: per-line tints with an inset bar. */
+.gc-code-line[data-diff="add"] { background: color-mix(in srgb, var(--success) 10%, transparent); box-shadow: inset 2px 0 0 var(--success); }
+.gc-code-line[data-diff="del"] { background: color-mix(in srgb, var(--error) 10%, transparent); box-shadow: inset 2px 0 0 var(--error); }
+.gc-code-line[data-diff="hunk"] { background: color-mix(in srgb, var(--info) 6%, transparent); color: var(--info); }
+.gc-code-line[data-diff="meta"] { color: var(--text-muted); }
+
+.gc-code-fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 56px;
+  pointer-events: none;
+}
+.gc-code-fade[data-edge="bottom"] { bottom: 0; background: linear-gradient(to bottom, var(--surface-inset-clear), var(--surface-inset)); }
+.gc-code-fade[data-edge="top"] { top: 0; background: linear-gradient(to top, var(--surface-inset-clear), var(--surface-inset)); }
+.gc-code-footer { display: flex; justify-content: center; padding: 2px 0 6px; }
+.gc-code-expand {
+  height: 28px;
+  padding: 0 12px 0 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: var(--fs-meta);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  transition: background-color var(--dur-hover) var(--ease-hover), color var(--dur-hover) var(--ease-hover), transform var(--dur-instant) var(--ease-out);
+}
+.gc-code-expand svg { color: var(--text-muted); transition: transform var(--dur-base) var(--ease-out); }
+.gc-code-expand[aria-expanded="true"] svg { transform: rotate(180deg); }
+.gc-code-expand:hover { background: var(--fill-hover); color: var(--text-primary); transition-duration: 0ms, 0ms, var(--dur-instant); }
+.gc-code-expand:active { transform: scale(.96); }
+
+/* ===== Tool calls: one-line trace rows ===================================== */
+.gc-tool-group { display: flex; flex-direction: column; gap: 2px; }
+.gc-tool-slot { min-width: 0; }
+.gc-tool { position: relative; min-width: 0; }
+
+/* The shared rail: segments between status icons (3px clear of each icon),
+   continuing down through an expanded body. */
+.gc-tool::before,
+.gc-tool::after {
+  position: absolute;
+  left: 9.5px;
+  width: 1px;
+  background: var(--hairline-strong);
+  pointer-events: none;
+}
+.gc-tool-slot:not(:first-child) > .gc-tool::before { content: ''; top: -2px; height: 7px; }
+.gc-tool[data-expanded]::after { content: ''; top: 27px; bottom: 8px; }
+.gc-tool-slot:not(:last-child) > .gc-tool::after { content: ''; top: 27px; bottom: 0; }
+
+.gc-tool-row {
+  width: calc(100% + 16px);
+  height: 32px;
+  margin: 0 -8px;
+  padding: 0 8px 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: var(--fs-ui);
+  text-align: left;
+  transition: background-color var(--dur-hover) var(--ease-hover), transform var(--dur-instant) var(--ease-out);
+}
+.gc-tool-row:hover { background: var(--fill-hover); transition-duration: 0ms, var(--dur-instant); }
+.gc-tool-row:active { transform: scale(.98); background: var(--fill-pressed); }
+
+.gc-tool-status-icon {
+  width: 16px;
+  height: 16px;
+  margin-right: calc(var(--gc-gutter) - 26px); /* name starts on the prose edge */
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+}
+.gc-tool-status-icon .gc-spinner { width: 14px; height: 14px; }
+/* Long MCP tool names truncate too, but only after the argument chip has
+   given up its space (much larger shrink factor on the chip). */
+.gc-tool-name {
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
+  font-size: var(--fs-ui);
+  font-weight: 550;
+  white-space: nowrap;
+}
+.gc-tool-arg,
+.gc-tool-note {
+  min-width: 0;
+  flex: 0 1000 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-meta);
+  line-height: 1.5;
+}
+.gc-tool-arg {
+  padding: 1px 7px;
+  border-radius: var(--radius-sm);
+  background: var(--fill-hover);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-variant-ligatures: none;
+}
+.gc-tool-note { color: color-mix(in srgb, var(--error) 85%, transparent); }
+.gc-tool-spacer { flex: 1 1 0; min-width: 4px; }
+.gc-tool-state { flex-shrink: 0; color: var(--text-muted); font-size: var(--fs-meta); white-space: nowrap; }
+.gc-tool-duration {
+  flex-shrink: 0;
+  min-width: 5ch;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.gc-tool-chevron {
+  flex-shrink: 0;
+  color: var(--text-faint);
+  opacity: 0;
+  transition: opacity var(--dur-hover) var(--ease-hover), transform var(--dur-base) var(--ease-drawer);
+}
+.gc-tool-row:focus-visible .gc-tool-chevron,
+.gc-tool[data-expanded] .gc-tool-chevron { opacity: 1; }
+.gc-tool[data-expanded] .gc-tool-chevron { transform: rotate(90deg); }
+@media (hover: hover) and (pointer: fine) {
+  .gc-tool-row:hover .gc-tool-chevron { opacity: 1; transition-duration: 0ms, var(--dur-base); }
+}
+@media (hover: none) {
+  .gc-tool-chevron { opacity: 1; }
+}
+
+/* States */
+.gc-tool:is(.preparing, .queued) .gc-tool-status-icon { color: var(--text-faint); }
+.gc-tool.awaiting_approval .gc-tool-status-icon,
+.gc-tool.awaiting_approval .gc-tool-state { color: var(--warning); }
+.gc-tool.complete .gc-tool-status-icon { color: var(--success); }
+.gc-tool.failed .gc-tool-status-icon,
+.gc-tool.failed .gc-tool-state { color: var(--error); }
+.gc-tool.denied .gc-tool-status-icon,
+.gc-tool.denied .gc-tool-state { color: var(--warning); }
+/* Refused by the tool itself before it ran: neutral, not a warning. */
+.gc-tool.refused .gc-tool-status-icon,
+.gc-tool.refused .gc-tool-state { color: var(--text-muted); }
+.gc-tool:is(.denied, .refused, .cancelled) .gc-tool-name {
+  color: var(--text-secondary);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--text-muted) 70%, transparent);
+}
+.gc-tool.cancelled .gc-tool-status-icon { opacity: .7; }
+
+/* ---- Step groups: a run of 2+ calls folded into one summary row --------
+   Same row metrics as a call (status slot in the gutter, text on the prose
+   edge). While live, the current step sits under the row as a caption line;
+   expanded, the call rows hang off the summary on the shared rail. */
+.gc-step-group { position: relative; min-width: 0; display: flex; flex-direction: column; }
+.gc-step-row { position: relative; }
+.gc-step-row .gc-tool-status-icon { color: var(--text-muted); }
+.gc-step-group[data-waiting] > .gc-step-row .gc-tool-status-icon { color: var(--warning); }
+.gc-step-summary {
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: var(--fs-ui);
+  font-variant-numeric: tabular-nums;
+}
+.gc-step-summary [data-tone="count"] { color: var(--text-primary); font-weight: 550; }
+.gc-step-summary [data-tone="failed"] { color: color-mix(in srgb, var(--error) 85%, transparent); }
+.gc-step-summary [data-tone="denied"] { color: var(--warning); }
+.gc-step-summary [data-tone="refused"] { color: var(--text-muted); }
+.gc-step-dot { color: var(--text-faint); }
+/* A summary row says "there is more here": its chevron always shows. */
+.gc-step-row .gc-tool-chevron { opacity: 1; }
+.gc-step-row:hover .gc-tool-chevron,
+.gc-step-group[data-expanded] > .gc-step-row .gc-tool-chevron { color: var(--text-muted); }
+.gc-step-group[data-expanded] > .gc-step-row .gc-tool-chevron { transform: rotate(90deg); }
+/* Rail from the summary's icon (3px clear) into the first call row. */
+.gc-step-group[data-expanded] > .gc-step-row::after {
+  content: '';
+  position: absolute;
+  left: 17.5px; /* the row's -8px margin + 10px padding + half the 16px slot */
+  top: 27px;
+  bottom: 0;
+  width: 1px;
+  background: var(--hairline-strong);
+  pointer-events: none;
+}
+.gc-step-body { overflow: hidden; }
+.gc-step-body > .gc-tool-group { padding-top: 2px; }
+.gc-step-body .gc-tool-slot:first-child > .gc-tool::before { content: ''; top: -2px; height: 7px; }
+
+/* Live line: the current step as a caption on the prose edge. */
+.gc-step-live { overflow: hidden; }
+.gc-step-live-line {
+  height: 26px;
+  padding: 0 0 2px var(--gc-gutter);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: var(--fs-meta);
+}
+.gc-step-live-icon { width: 14px; height: 14px; flex-shrink: 0; display: grid; place-items: center; color: var(--text-muted); }
+.gc-step-live-line[data-state="awaiting_approval"] .gc-step-live-icon,
+.gc-step-live-line[data-state="awaiting_approval"] .gc-tool-state { color: var(--warning); }
+.gc-step-live-name {
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-weight: 550;
+}
+
+/* Expanded: input/output wells, indented behind the rail. */
+.gc-tool-body { overflow: hidden; }
+.gc-tool-body-inner {
+  padding: 2px 0 10px var(--gc-gutter);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.gc-tool-detail { margin: 0; color: var(--text-muted); font-size: var(--fs-meta); line-height: 1.5; }
+.gc-tool-label {
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  font-weight: 550;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+.gc-tool-well {
+  max-height: 260px;
+  margin: 0;
+  padding: 10px 12px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border-radius: var(--radius-lg);
+  background: var(--surface-inset);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--text-secondary);
+  font: 400 var(--fs-meta) / 1.6 var(--font-mono);
+  font-variant-ligatures: none;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.gc-tool-well.is-error { color: var(--error); }
+
+/* ===== Welcome (empty) ==================================================== */
+/* Only the heading region scrolls. The shared composer keeps exactly the
+   same width and bottom edge before and after the first message. */
+.gc-chat-empty {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 24px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.gc-chat-empty::before, .gc-chat-empty::after { content: ''; flex: 1 0 0; min-height: 0; }
+.gc-chat-empty > * { flex-shrink: 0; }
+.gc-welcome-mark { width: 44px; height: 44px; margin-bottom: 20px; display: grid; place-items: center; }
+.gc-welcome-eyebrow { margin-bottom: 10px; color: var(--text-muted); font-size: var(--fs-meta); letter-spacing: .01em; }
+.gc-chat-empty h1 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--fs-display);
+  font-weight: 650;
+  line-height: 1.15;
+  letter-spacing: -.022em;
+  text-wrap: balance;
+}
+.gc-chat-empty p {
+  margin: 12px 0 0;
+  color: var(--text-secondary);
+  font-size: var(--fs-body);
+  line-height: 1.55;
+  text-wrap: balance;
+}
+.gc-open-project { margin-top: 22px; min-height: 36px; padding: 0 12px 0 14px; }
+.gc-open-project .gc-kbd { margin-left: 4px; }
+/* With a project open: the slash and one line, centred on the whole
+   conversation panel (the composer's region included), not only on the space
+   above it. The region stays in the flow so the composer keeps its place. */
+.gc-chat-empty.is-welcome { padding: 0; }
+.gc-welcome {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 32px;
+  pointer-events: none;
+}
+.gc-welcome .gc-welcome-mark { margin-bottom: 16px; }
+.gc-chat-empty .gc-welcome-line {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--fs-body);
+  line-height: 1.5;
+  text-wrap: balance;
+}
+/* Too short to keep the line clear of the composer: centre on the space above it. */
+@media (max-height: 520px) {
+  .gc-welcome { position: static; flex: 0 0 auto; padding: 0; }
+}
+
+/* ===== Focus shapes ======================================================= */
+/* global.css gives every :focus-visible element border-radius 6px, and as it
+   loads after this file with the same specificity it would square off the
+   round and pill controls here on keyboard focus. Keep their own shapes. */
+.gc-chat .gc-scroll-bottom:focus-visible { border-radius: var(--radius-full); }
+.gc-chat .gc-header-icon:focus-visible { border-radius: var(--radius-md); }
+.gc-chat :is(.gc-project-breadcrumb, .gc-code-copy, .gc-code-expand, .gc-tool-row):focus-visible { border-radius: var(--radius-md); }
+/* .gc-code clips its corners (overflow hidden) 3px from this button, so its
+   ring is drawn inside instead of being cut off. */
+.gc-chat .gc-code-copy:focus-visible { outline-offset: -2px; }
+
+/* ===== Responsive =========================================================
+   ChatArea applies these breakpoint classes from its measured width. */
+.gc-chat.is-compact .gc-chat-header { padding-left: 16px; }
+.gc-chat.is-compact .gc-message-stream { padding: 12px 24px 32px; }
+.gc-chat.is-narrow .gc-chat-heading, .gc-chat.is-narrow .gc-breadcrumb-divider { display: none; }
+.gc-chat.is-narrow .gc-chat-header { padding-left: 14px; padding-right: 10px; gap: 8px; }
+.gc-chat.is-narrow .gc-message-stream { padding: 10px 18px 28px; }
+.gc-chat.is-narrow .gc-message-card { max-width: 90%; }
+.gc-chat.is-narrow .gc-chat-empty h1 { font-size: 28px; }
+.gc-chat.is-narrow .gc-chat-empty p { font-size: var(--fs-ui); }
+/* The header icon column (10px from the right edge, 28px wide) hangs 208px
+   down over the stream. Once the panel is too narrow for the centred
+   780px column to clear it (2 × 46 + 780), the stream's right padding takes
+   over so text never runs under the icons. Last, so it wins over the
+   narrower paddings above. */
+.gc-chat.is-tight .gc-message-stream { padding-right: 46px; }
+@media (max-height: 760px) {
+  .gc-chat-empty { padding-top: 12px; padding-bottom: 12px; }
+  .gc-welcome-mark { margin-bottom: 10px; }
+  .gc-welcome-eyebrow { margin-bottom: 6px; }
+  .gc-chat-empty p { margin-top: 8px; }
+}
+
+/* A session that took over after a handoff: the continued request, with the
+   handoff notes behind a disclosure (the message itself carries both). */
+.gc-continuation .gc-message-card { display: flex; flex-direction: column; gap: 6px; max-width: min(560px, 100%); }
+.gc-continuation-eyebrow { display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: var(--fs-meta); }
+.gc-continuation-toggle {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: -4px;
+  padding: 2px 6px 2px 4px;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: var(--fs-meta);
+  transition: background-color var(--dur-hover) var(--ease-hover), color var(--dur-hover) var(--ease-hover);
+}
+.gc-continuation-toggle svg { transition: transform var(--dur-base) var(--ease-out); }
+.gc-continuation-toggle[aria-expanded="true"] svg { transform: rotate(90deg); }
+.gc-continuation-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+@media (hover: hover) and (pointer: fine) {
+  .gc-continuation-toggle:hover { color: var(--text-primary); background: var(--fill-hover); transition-duration: 0ms; }
+}
+.gc-continuation-body { overflow: hidden; }
+.gc-continuation-notes { margin-top: 2px; padding: 8px 12px; border-radius: var(--radius-lg); background: var(--surface); font-size: var(--fs-meta); }
+.gc-continuation-path { margin-top: 6px; color: var(--text-muted); font-size: var(--fs-meta); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { .gc-continuation-toggle svg { transition: none; } }

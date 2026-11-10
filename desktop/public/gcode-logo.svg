@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <title>G-Code</title>
+  <defs>
+    <linearGradient id="slash" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#1279A8"/>
+      <stop offset="1" stop-color="#BFD8E3"/>
+    </linearGradient>
+  </defs>
+  <path d="M16 58H27L48 6H37Z" fill="url(#slash)"/>
+</svg>

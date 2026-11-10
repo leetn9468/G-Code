@@ -1,0 +1,388 @@
+/* G-Code Desktop — overlays: modal shell, shared dialog parts, outputs.
+   Search lives in search.css, New project in projects.css and the execution
+   environment picker in environments.css. */
+
+/* ---- Modal shell -------------------------------------------------------- */
+.gc-modal-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+/* Top-anchored dialogs (⌘K) keep their top edge still while results change. */
+.gc-modal-layer[data-align="top"] { place-items: start center; }
+.gc-modal-layer[data-align="top"] > .gc-modal-panel {
+  margin-top: max(24px, calc((100vh - 480px) / 2 - 24px));
+  transform-origin: 50% 0;
+}
+/* An exiting dialog no longer takes clicks; what's underneath is usable at once. */
+.gc-modal-layer[data-state="closed"],
+.gc-modal-layer[data-state="closed"] * { pointer-events: none; }
+
+.gc-modal-scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: var(--overlay);
+  -webkit-backdrop-filter: blur(6px) saturate(120%);
+  backdrop-filter: blur(6px) saturate(120%);
+}
+
+.gc-modal-panel {
+  position: relative;
+  max-width: calc(100vw - 48px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  outline: none;
+  color: var(--text-primary);
+  background: var(--surface-elevated);
+  border-radius: var(--radius-modal);
+  box-shadow: var(--elev-overlay), var(--highlight-top);
+  transform-origin: 50% 40%;
+}
+/* The panel is focused from script (often right after a shortcut), so it can
+   match :focus-visible; keep the global focus ring off it. */
+.gc-modal-panel:focus,
+.gc-modal-panel:focus-visible { outline: none; border-radius: var(--radius-modal); }
+/* Scrolling inside a dialog never chains out of it. Each dialog's own scroll
+   areas opt in (search results, outputs panes); a blanket `*` rule would also
+   stop nested scrollers in other dialogs from handing off to their page. */
+.gc-modal-panel { overscroll-behavior: contain; }
+
+/* ---- Shared dialog parts ------------------------------------------------
+   Header: optional 36px icon tile · title 22/28 with a muted subline · close.
+   Panel radius 18 with 24px padding: inner surfaces pick their own radii. */
+.gc-modal-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 22px 18px 18px 24px;
+  flex-shrink: 0;
+}
+.gc-modal-heading { flex: 1; min-width: 0; }
+.gc-modal-heading h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--fs-title);
+  font-weight: 620;
+  line-height: 28px;
+  letter-spacing: -0.016em;
+  text-wrap: balance;
+}
+.gc-modal-heading p {
+  margin: 4px 0 0;
+  max-width: 68ch;
+  color: var(--text-muted);
+  font-size: var(--fs-ui);
+  line-height: 20px;
+}
+.gc-modal-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  margin-top: -4px; /* centre on the 28px title line */
+  border-radius: var(--radius-lg);
+  color: var(--text-secondary);
+  background: var(--fill-hover);
+  box-shadow: inset 0 0 0 1px var(--hairline), var(--highlight-top);
+}
+.gc-modal-close { width: 30px; height: 30px; margin-top: -1px; }
+.gc-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 24px; /* the body's 24px edge; only the header keeps 18px for the close icon */
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  background: color-mix(in srgb, var(--ink-shade) 16%, transparent);
+  border-top: 1px solid var(--hairline);
+}
+
+/* Labelled fields. The wells are the shared .gc-input-well (settings.css),
+   one step larger in dialog forms. */
+.gc-field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.gc-field-label { color: var(--text-secondary); font-size: var(--fs-ui); font-weight: 560; line-height: 20px; }
+.gc-field .gc-input-well { height: 40px; font-size: var(--fs-body); }
+.gc-field .gc-input-well::placeholder { color: var(--text-muted); }
+
+/* Close button kept for the context-window dialog (SessionControls). */
+.gc-panel-close {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  margin-left: auto;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  transition: color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), transform var(--dur-instant) var(--ease-out);
+}
+.gc-panel-close:hover { color: var(--text-primary); background: var(--fill-hover); }
+.gc-panel-close:active { transform: scale(.96); background: var(--fill-pressed); }
+
+/* ---- Session outputs (the side panel's Outputs view) ------------------
+   File list over the preview well; the list takes at most 40% of the height. */
+.gc-outputs-count {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  background: var(--fill-hover);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  font-size: var(--fs-micro);
+  font-weight: 560;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.gc-outputs-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 12px 12px;
+}
+
+/* File list: rows on the panel surface; the active row carries a filled
+   pill with a 2px accent bar that glides between rows (pointer only). */
+.gc-outputs-content nav {
+  flex: 0 1 auto;
+  max-height: 40%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  margin: -4px -4px 0; /* room for focus rings inside the scroller */
+  padding: 4px;
+}
+.gc-outputs-content nav button {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  flex-shrink: 0;
+  padding: 9px 10px 9px 12px;
+  border-radius: var(--radius-lg);
+  color: var(--text-muted);
+  text-align: left;
+  transition: background-color var(--dur-hover) var(--ease-hover), color var(--dur-hover) var(--ease-hover), transform var(--dur-instant) var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .gc-outputs-content nav button:hover:not(.active) { background: var(--fill-hover); color: var(--text-secondary); transition-duration: 0ms, 0ms, var(--dur-instant); }
+}
+.gc-outputs-content nav button:active { transform: scale(.98); }
+.gc-outputs-content nav button.active { color: var(--text-primary); }
+.gc-outputs-content nav button > .gc-output-indicator {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--fill-selected);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  pointer-events: none;
+}
+.gc-outputs-content nav button > .gc-output-indicator::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: var(--accent);
+}
+.gc-outputs-content nav button > svg { position: relative; flex-shrink: 0; margin-top: 2px; }
+.gc-outputs-content nav button > span:not(.gc-output-indicator) { position: relative; display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.gc-outputs-content nav strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+  font-size: var(--fs-ui);
+  font-weight: 560;
+  line-height: 20px;
+}
+.gc-output-directory {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  line-height: 18px;
+}
+.gc-outputs-content nav button.active :is(.gc-output-directory, small) { color: var(--text-secondary); }
+.gc-outputs-content nav small {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
+}
+/* A file the session deleted: its glyph and a status pill on the meta line
+   (the text tint is AA on its 12% fill, like Changes' Deleted status). */
+.gc-outputs-content nav button > svg[data-status="deleted"] { color: var(--error-text); }
+.gc-output-badge {
+  display: inline-block;
+  height: 16px;
+  margin: 1px 6px 0 0;
+  padding: 0 6px;
+  vertical-align: top;
+  border-radius: var(--radius-full);
+  color: var(--error-text);
+  background: var(--error-subtle);
+  font-size: var(--fs-micro);
+  font-weight: 560;
+  line-height: 16px;
+}
+
+/* Preview pane: version bar over an inset code well. */
+.gc-output-detail {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 160px;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  background: var(--surface-inset);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.gc-output-version {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 8px 8px 8px 14px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  background: color-mix(in srgb, var(--ink-hairline) 2.7%, transparent);
+  border-bottom: 1px solid var(--hairline);
+}
+.gc-output-version label { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.gc-output-version small {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-basis: 100%;
+  order: 3;
+  color: var(--warning);
+  font-size: var(--fs-meta);
+  line-height: 18px;
+}
+/* "Deleted during this session": a fact, not a warning. */
+.gc-output-version small[data-tone="deleted"] { color: var(--text-secondary); }
+.gc-output-version small[data-tone="deleted"] svg { color: var(--error-text); }
+.gc-output-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; margin-left: auto; }
+/* Open · Show in Finder (and the trace viewer): compact, on the select's 28px row. */
+.gc-output-actions .gc-btn { min-height: 28px; padding: 0 10px; border-radius: var(--radius-md); font-size: var(--fs-meta); }
+
+/* Native select, restyled: explicit colours (no OS chrome) and our chevron. */
+.gc-output-select { position: relative; display: inline-flex; align-items: center; min-width: 0; max-width: 100%; }
+.gc-output-select select {
+  min-width: 0;
+  max-width: 100%;
+  height: 28px;
+  padding: 0 28px 0 10px;
+  -webkit-appearance: none;
+  appearance: none;
+  border: 0;
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  background-color: var(--surface-elevated);
+  background-image: none;
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+  font: inherit;
+  font-size: var(--fs-meta);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: box-shadow var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .gc-output-select select:hover { background-color: var(--surface-raised); transition-duration: 0ms; }
+}
+.gc-output-select select:focus-visible { outline: none; border-radius: var(--radius-md); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent), 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent); transition-duration: 0ms; }
+.gc-output-select select option { color: var(--text-primary); background-color: var(--surface-elevated); }
+.gc-output-select > svg { position: absolute; right: 9px; color: var(--text-muted); pointer-events: none; }
+
+.gc-output-preview { position: relative; flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 14px 16px; }
+.gc-output-preview pre {
+  margin: 0;
+  color: var(--text-code);
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: 2;
+}
+.gc-output-preview[data-state="empty"],
+.gc-output-preview[data-state="loading"] { display: grid; place-items: center; }
+.gc-output-preview[data-state="empty"] pre,
+.gc-output-preview[data-state="loading"] pre { color: var(--text-muted); font-family: var(--font-ui); font-size: var(--fs-ui); text-align: center; }
+.gc-output-preview pre.gc-shimmer-text { color: transparent; }
+.gc-output-hint { display: flex; flex-direction: column; align-items: center; gap: 6px; max-width: 36ch; text-align: center; }
+.gc-output-hint p { margin: 0; color: var(--text-secondary); font-size: var(--fs-ui); }
+.gc-output-hint small { color: var(--text-muted); font-size: var(--fs-meta); line-height: 1.55; text-wrap: pretty; }
+/* A definite 1fr area so max-height: 100% fits the image inside the well. */
+.gc-output-preview[data-state="image"] { display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); place-items: center; padding: 16px; }
+/* Errors, in the preview (it could not be read) or above it (Open / Show in
+   Finder failed, the preview stays). */
+.gc-output-preview [role="alert"],
+.gc-output-alert {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  color: var(--error);
+  background: var(--error-subtle);
+  font-size: var(--fs-ui);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.gc-output-alert { flex-shrink: 0; margin: 10px 12px 0; }
+.gc-output-image {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  outline: 1px solid var(--control-highlight);
+  outline-offset: -1px;
+}
+
+/* Nothing yet: a quiet note in the middle of the panel. */
+.gc-outputs-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 28px 48px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+.gc-outputs-empty .gc-outputs-empty-icon { margin: 0 0 8px; }
+.gc-outputs-empty strong { color: var(--text-primary); font-size: var(--fs-body); font-weight: 560; text-wrap: balance; }
+.gc-outputs-empty small { display: block; max-width: 44ch; color: var(--text-muted); font-size: var(--fs-meta); line-height: 1.55; text-wrap: balance; }
+
+@media (max-width: 720px) {
+  .gc-modal-header { padding-left: 18px; }
+}

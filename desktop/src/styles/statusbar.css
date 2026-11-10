@@ -1,0 +1,19 @@
+/* G-Code Desktop — status strip additions. Base status-strip styles live in
+   shell.css; this file only adds to them. */
+
+/* ---- Status strip additions (StatusBar.tsx) -------------------------- */
+.gc-statusbar > button.gc-status-project {
+  transition-property: color, background-color, transform;
+  transition-duration: 150ms, 150ms, var(--dur-instant);
+  transition-timing-function: var(--ease-out);
+}
+.gc-statusbar > button.gc-status-project > svg { color: var(--text-faint); transition: color 150ms var(--ease-out); }
+@media (hover: hover) and (pointer: fine) {
+  .gc-statusbar > button.gc-status-project:hover { transition-duration: 0ms, 0ms, var(--dur-instant); }
+  .gc-statusbar > button.gc-status-project:hover > svg { color: var(--text-secondary); transition-duration: 0ms; }
+}
+.gc-statusbar > button.gc-status-project:active { transform: scale(.96); background: var(--fill-pressed); }
+/* Project tooltip (portalled): label, then the full path, wrapping anywhere. */
+.gc-status-tip { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.gc-status-path { color: var(--text-muted); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.gc-status-count { font-variant-numeric: tabular-nums; }

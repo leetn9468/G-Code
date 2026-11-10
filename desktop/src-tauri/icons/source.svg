@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" fill="none">
+  <title>G-Code app icon</title>
+  <defs>
+    <!-- The branding gradient: #000000 · #004A6B · #00638E · #8CB9CC (bottom-left to top-right). -->
+    <linearGradient id="brand" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#000000"/>
+      <stop offset="0.4" stop-color="#004A6B"/>
+      <stop offset="0.7" stop-color="#00638E"/>
+      <stop offset="1" stop-color="#8CB9CC"/>
+    </linearGradient>
+  </defs>
+  <rect x="64" y="64" width="896" height="896" rx="208" fill="url(#brand)"/>
+  <!-- The "/" mark (src/icons/GLogo.tsx, 64-unit grid) in Paper White. -->
+  <path d="M16 58H27L48 6H37Z" fill="#FFFFFF" transform="translate(192 192) scale(10)"/>
+</svg>

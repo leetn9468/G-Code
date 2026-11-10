@@ -1,0 +1,454 @@
+/* G-Code Desktop — the side panel's Files view: a filter well, the project
+   tree and a resizable preview well below it. Rows are quiet (no borders);
+   the previewed file carries the selection pill with its 2px accent bar, as
+   in Outputs. Shared pieces: .gc-side-* (sidepanel.css), .gc-outputs-empty,
+   .gc-output-hint and .gc-output-image (overlays.css), .gc-menu* (base.css). */
+
+.gc-files { position: relative; }
+
+.gc-files-project {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  font-weight: 450;
+}
+
+/* ---- Filter ------------------------------------------------------------ */
+.gc-files-toolbar { flex-shrink: 0; padding: 0 12px 8px; }
+.gc-files-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 5px 0 10px;
+  border-radius: var(--radius-lg);
+  color: var(--text-faint);
+  background: var(--surface-inset);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+  transition: box-shadow var(--dur-fast) var(--ease-out);
+}
+.gc-files-filter > svg { flex-shrink: 0; }
+.gc-files-filter:focus-within {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent), 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.gc-files-filter input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: none;
+  color: var(--text-primary);
+  background: transparent;
+  font: 450 var(--fs-ui)/20px var(--font-ui);
+}
+.gc-files-filter input::placeholder { color: var(--text-muted); opacity: 1; }
+.gc-files-filter input:focus-visible { outline: none; }
+.gc-files-clear {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  transition: background-color var(--dur-hover) var(--ease-hover), color var(--dur-hover) var(--ease-hover);
+}
+/* A 32px hit area around the 22px glyph. */
+.gc-files-clear::before { content: ''; position: absolute; inset: -5px; }
+.gc-files-clear:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+@media (hover: hover) and (pointer: fine) {
+  .gc-files-clear:hover { color: var(--text-primary); background: var(--fill-hover); transition-duration: 0ms; }
+}
+
+.gc-files-refresh[aria-busy="true"] svg { animation: gc-spin .9s linear infinite; }
+
+/* ---- Body: tree over preview ------------------------------------------- */
+.gc-files-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.gc-files-tree-pane {
+  flex: 1 1 0;
+  min-height: 96px;
+  display: flex;
+  flex-direction: column;
+}
+.gc-files-scroll {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 0 6px 10px;
+}
+
+.gc-files-tree,
+.gc-files-group { margin: 0; padding: 0; list-style: none; }
+.gc-files-tree { flex: 0 0 auto; }
+.gc-files-item { outline: none; }
+/* Files and closed folders are exactly one row: off-screen ones skip style,
+   layout and paint (a 3000-entry folder stays cheap to scroll and update). */
+.gc-files-item:not([aria-expanded="true"]) { content-visibility: auto; contain-intrinsic-size: auto 28px; }
+
+.gc-files-row {
+  --indent: calc((var(--level, 1) - 1) * 14px);
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 4px 0 calc(4px + var(--indent));
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: var(--fs-ui);
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: background-color var(--dur-hover) var(--ease-hover), color var(--dur-hover) var(--ease-hover);
+}
+@media (hover: hover) and (pointer: fine) {
+  .gc-files-row:hover { color: var(--text-primary); background: var(--fill-hover); transition-duration: 0ms; }
+}
+/* The previewed file: the selection pill with the accent bar. */
+.gc-files-item[aria-selected="true"] > .gc-files-row {
+  color: var(--text-primary);
+  background: var(--fill-selected);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.gc-files-item[aria-selected="true"] > .gc-files-row::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 7px;
+  bottom: 7px;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: var(--accent);
+}
+.gc-files-row[data-menu] { background: var(--fill-pressed); color: var(--text-primary); }
+/* Keyboard focus only: rows are also focused from script on mouse down. */
+.gc-files:not([data-modality="pointer"]) .gc-files-item:focus-visible > .gc-files-row { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 80%, transparent); }
+
+.gc-files-twisty {
+  width: 18px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  margin-right: -4px;
+  color: var(--text-faint);
+}
+/* Instant: expanding is keyboard-driven and frequent (no animation). */
+.gc-files-item[aria-expanded="true"] > .gc-files-row .gc-files-twisty > svg { transform: rotate(90deg); }
+.gc-files-row:hover .gc-files-twisty { color: var(--text-muted); }
+.gc-files-spinner { width: 10px; height: 10px; }
+
+.gc-files-icon { flex-shrink: 0; color: var(--text-muted); }
+.gc-files-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 20px;
+}
+.gc-files-mark {
+  color: var(--text-primary);
+  background: var(--fill-pressed);
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px var(--fill-pressed);
+  font-weight: 600;
+}
+.gc-files-link { flex-shrink: 0; color: var(--text-faint); }
+
+/* Dot-files: shown, dimmed. */
+.gc-files-row[data-dotted] { color: var(--text-faint); }
+.gc-files-row[data-dotted] .gc-files-icon { color: var(--text-faint); }
+.gc-files-row[data-dotted]:hover { color: var(--text-muted); }
+
+/* Row actions: shown on hover, while focused or selected, and while its menu is open. */
+.gc-files-more {
+  width: 24px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity var(--dur-hover) var(--ease-hover), background-color var(--dur-hover) var(--ease-hover), color var(--dur-hover) var(--ease-hover);
+}
+.gc-files-row:hover .gc-files-more,
+.gc-files-row[data-menu] .gc-files-more,
+.gc-files:not([data-modality="pointer"]) .gc-files-item:focus-visible > .gc-files-row .gc-files-more,
+.gc-files-item[aria-selected="true"] > .gc-files-row .gc-files-more { opacity: 1; transition-duration: 0ms; }
+@media (hover: hover) and (pointer: fine) {
+  .gc-files-more:hover { color: var(--text-primary); background: var(--fill-pressed); transition-duration: 0ms; }
+}
+@media (hover: none) { .gc-files-more { opacity: 1; } }
+
+/* Indent guides: one hairline under each open folder's chevron. */
+.gc-files-group { position: relative; }
+.gc-files-group::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 4px;
+  left: calc(4px + (var(--level, 1) - 1) * 14px + 8.5px);
+  width: 1px;
+  background: var(--hairline);
+  pointer-events: none;
+}
+
+/* Notes inside a folder: loading, failed, empty, truncated. */
+.gc-files-note {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 8px 5px calc(4px + (var(--level, 1) - 1) * 14px + 22px);
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  line-height: 18px;
+  overflow-wrap: anywhere;
+}
+.gc-files-note[data-tone="error"] { color: var(--error); }
+.gc-files-note[data-tone="warning"] { color: var(--warning); }
+.gc-files-note-action {
+  flex-shrink: 0;
+  color: var(--text-primary);
+  font-weight: 560;
+  text-decoration: underline;
+  text-decoration-color: var(--hairline-strong);
+  text-underline-offset: 3px;
+}
+
+/* Whole-tree states. */
+.gc-files-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px 20px 48px;
+  color: var(--text-muted);
+  font-size: var(--fs-ui);
+  text-align: center;
+}
+.gc-files-error {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  color: var(--error);
+  background: var(--error-subtle);
+  font-size: var(--fs-ui);
+  line-height: 1.55;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.gc-files-retry { min-height: 30px; padding: 0 12px; border-radius: var(--radius-md); font-size: var(--fs-meta); }
+.gc-files-empty { padding-bottom: 32px; }
+
+/* Inline action results (open refused, copied): under the tree, never a dialog. */
+.gc-files-notices { flex-shrink: 0; padding: 0 10px; }
+.gc-files-notices:not(:empty) { padding-bottom: 8px; }
+.gc-files-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 6px 8px 12px;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  background: var(--surface-elevated);
+  box-shadow: var(--elev-raised);
+  font-size: var(--fs-meta);
+  line-height: 18px;
+  animation: gc-fade-up 180ms var(--ease-out) both;
+}
+.gc-files-notice > span { flex: 1; min-width: 0; padding: 2px 0; overflow-wrap: anywhere; }
+.gc-files-notice[data-tone="error"] { color: var(--error); background: color-mix(in srgb, var(--error-strong) 10%, var(--surface-elevated)); }
+.gc-files-notice-action {
+  flex-shrink: 0;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  background: var(--fill-hover);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+  font-size: var(--fs-meta);
+  font-weight: 560;
+}
+.gc-files-notice-close {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+}
+@media (hover: hover) and (pointer: fine) {
+  .gc-files-notice-action:hover { background: var(--fill-pressed); }
+  .gc-files-notice-close:hover { color: var(--text-primary); background: var(--fill-hover); }
+}
+.gc-files-notice :is(button):focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* ---- Split ------------------------------------------------------------- */
+.gc-files-split {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  height: 12px;
+  margin: -3px 0 -1px;
+  cursor: row-resize;
+  touch-action: none;
+  outline: none;
+}
+.gc-files-split::after {
+  content: '';
+  position: absolute;
+  left: 30%;
+  right: 30%;
+  top: 5px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--hairline-strong);
+  transition: background var(--dur-base) var(--ease-out), left var(--dur-slow) var(--ease-out), right var(--dur-slow) var(--ease-out);
+}
+.gc-files-split:hover::after,
+.gc-files-split:focus-visible::after,
+.gc-files-split.is-resizing::after { left: 12px; right: 12px; background: var(--accent); }
+
+/* ---- Preview well ------------------------------------------------------ */
+.gc-files-preview {
+  flex: 0 0 calc(var(--files-preview, .45) * 100%);
+  min-height: 120px;
+  max-height: calc(100% - 108px);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin: 0 12px 12px;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  background: var(--surface-inset);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.gc-files-preview-head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 6px 6px 12px;
+  background: color-mix(in srgb, var(--ink-hairline) 2.7%, transparent);
+  border-bottom: 1px solid var(--hairline);
+}
+.gc-files-preview-head > .gc-files-icon { margin-right: 6px; }
+.gc-files-preview-head .gc-side-icon { width: 28px; height: 28px; }
+.gc-files-preview-title { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.gc-files-preview-title strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+  font-size: var(--fs-ui);
+  font-weight: 560;
+  line-height: 20px;
+}
+.gc-files-preview-title small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.gc-files-preview-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 14px 16px;
+}
+.gc-files-preview-body[data-state="notice"] { display: grid; place-items: center; color: var(--text-muted); font-size: var(--fs-ui); text-align: center; }
+/* A definite 1fr area so the image's max-height: 100% fits the well. */
+.gc-files-preview-body[data-state="image"] { display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); place-items: center; padding: 16px; }
+
+/* Text: a sticky line-number gutter beside unwrapped lines. */
+.gc-files-code {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: auto minmax(max-content, 1fr);
+  align-content: start;
+  overflow: auto;
+  overscroll-behavior: contain;
+  outline: none;
+}
+.gc-files-code:focus-visible { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 70%, transparent); }
+.gc-files-gutter,
+.gc-files-text {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono);
+  line-height: 1.6;
+  white-space: pre;
+  tab-size: 2;
+}
+.gc-files-gutter {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  padding: 12px 12px 14px 14px;
+  color: var(--text-gutter);
+  background: var(--surface-inset);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.gc-files-text { padding: 12px 18px 14px 2px; color: var(--text-code); }
+.gc-files-text code { font: inherit; }
+
+.gc-files-preview-foot {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 7px 14px;
+  color: var(--warning);
+  font-size: var(--fs-meta);
+  line-height: 18px;
+  border-top: 1px solid var(--hairline);
+}
+
+/* ---- Row menu ---------------------------------------------------------- */
+.gc-files-menu-anchor { position: absolute; pointer-events: none; }
+.gc-files-menu { min-width: 220px; }
+.gc-files-menu .gc-menu-item { padding-left: 10px; }
+.gc-files-menu .gc-menu-item > svg { flex-shrink: 0; color: var(--text-muted); }
+.gc-files-menu .gc-menu-item[data-highlighted] > svg { color: var(--text-secondary); }
+.gc-files-menu-label {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gc-files-menu-kbd {
+  margin-left: auto;
+  padding-left: 16px;
+  color: var(--text-faint);
+  font-family: var(--font-ui);
+  font-size: var(--fs-meta);
+  font-variant-numeric: tabular-nums;
+}
+.gc-files-menu .gc-menu-item[data-highlighted] .gc-files-menu-kbd { color: var(--text-muted); }
+
+@media (prefers-reduced-motion: reduce) {
+  .gc-files-notice { animation: gc-fade 160ms var(--ease-out) both !important; }
+}

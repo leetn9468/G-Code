@@ -1,0 +1,201 @@
+/* G-Code Desktop — the side panel's Tasks view: background commands,
+   sub-agents and workflows, each a section of raised rows (running first).
+   A row: status light · title, command and meta · actions; a command's
+   output tail opens in an inset well under it. */
+
+.gc-tasks-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 4px 12px 16px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.gc-tasks-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px 2px;
+  color: var(--text-secondary);
+  font-size: var(--fs-meta);
+  font-weight: 560;
+}
+.gc-tasks-section h3 > svg { flex-shrink: 0; color: var(--text-muted); }
+.gc-tasks-section ul { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.gc-tasks-none { margin: 0 2px; color: var(--text-muted); font-size: var(--fs-meta); line-height: 1.55; text-wrap: pretty; }
+
+/* ---- Row ---------------------------------------------------------------- */
+.gc-task {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr);
+  column-gap: 10px;
+  row-gap: 6px;
+  padding: 10px 12px;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--elev-raised);
+}
+.gc-task-text { grid-column: 2; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.gc-task-text strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+  font-size: var(--fs-ui);
+  font-weight: 560;
+  line-height: 20px;
+}
+/* Finished work steps back a little; live work keeps full contrast. */
+.gc-task:is([data-status="completed"], [data-status="failed"], [data-status="stopped"]) .gc-task-text strong { color: var(--text-secondary); }
+.gc-task-text code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-meta);
+  line-height: 18px;
+}
+.gc-task-text small {
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
+}
+/* A failure's reason is what the row is for: up to four lines, the whole of it on hover. */
+.gc-task-error {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  color: var(--error-text);
+  font-size: var(--fs-meta);
+  line-height: 18px;
+}
+
+/* Status light (the sidebar's traffic-light colours): running yellow and
+   breathing, needs-you a red dot in a ring, completed green, failed red,
+   stopped grey. The row's text always names the state as well. */
+.gc-task-light {
+  grid-column: 1;
+  grid-row: 1;
+  align-self: start;
+  width: 8px;
+  height: 8px;
+  margin-top: 6px; /* centred on the 20px title line */
+  border-radius: 50%;
+  background: var(--status-idle);
+  box-shadow: var(--status-light-ring);
+}
+.gc-task-light[data-status="running"]   { background: var(--status-yellow); animation: gc-breathe 1.6s var(--ease-in-out) infinite; }
+.gc-task-light[data-status="completed"] { background: var(--status-green); }
+.gc-task-light[data-status="failed"]    { background: var(--status-red); }
+.gc-task-light[data-status="attention"] { width: 6px; height: 6px; margin: 7px 1px 0; background: var(--status-red); outline: 1.5px solid var(--status-red); outline-offset: 1.5px; }
+@media (prefers-reduced-motion: reduce) {
+  .gc-task-light[data-status="running"] { background: transparent; box-shadow: inset 0 0 0 2px var(--status-yellow); }
+}
+
+/* ---- Actions ------------------------------------------------------------ */
+.gc-task-actions {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.gc-task-actions .gc-btn-sm { min-height: 28px; padding: 0 10px; gap: 6px; }
+.gc-task-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  margin: 0 auto 0 -6px;
+  padding: 0 8px 0 4px;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  font-weight: 520;
+  transition: background-color var(--dur-hover) var(--ease-hover), color var(--dur-hover) var(--ease-hover), transform var(--dur-instant) var(--ease-out);
+}
+.gc-task-toggle:active { transform: scale(.97); background: var(--fill-pressed); }
+.gc-task-toggle > svg { transition: transform 150ms var(--ease-out); }
+.gc-task-toggle[aria-expanded="true"] > svg { transform: rotate(90deg); }
+.gc-task-toggle > span { margin-left: 4px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+@media (hover: hover) and (pointer: fine) {
+  .gc-task-toggle:hover { color: var(--text-primary); background: var(--fill-hover); transition-duration: 0ms, 0ms, var(--dur-instant); }
+}
+
+/* ---- Output well -------------------------------------------------------- */
+.gc-task-well {
+  grid-column: 1 / -1;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--surface-inset);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  animation: gc-fade-up 160ms var(--ease-out);
+}
+.gc-task-well > small {
+  display: block;
+  padding: 6px 10px 0;
+  color: var(--text-faint);
+  font-size: var(--fs-micro);
+  font-variant-numeric: tabular-nums;
+}
+.gc-task-well pre {
+  max-height: 240px;
+  margin: 0;
+  padding: 8px 10px 10px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  color: var(--text-code);
+  font-family: var(--font-mono);
+  font-size: var(--fs-meta);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: 4;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.gc-task-well pre:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: var(--radius-md); }
+
+/* ---- Workflow steps (phases and agents of a run) -------------------------- */
+.gc-task-nodes {
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 2px 0 0;
+  padding: 8px 0 0;
+  list-style: none;
+  box-shadow: inset 0 0.5px var(--hairline);
+}
+.gc-task-nodes > li { display: grid; grid-template-columns: 8px minmax(0, 1fr); column-gap: 8px; min-width: 0; }
+.gc-task-nodes > li[data-depth="1"] { padding-left: 16px; }
+.gc-task-nodes > li > div { display: flex; flex-direction: column; min-width: 0; }
+.gc-task-nodes .gc-task-light { margin-top: 5px; }
+.gc-task-nodes strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-size: var(--fs-meta);
+  font-weight: 560;
+  line-height: 18px;
+}
+.gc-task-nodes > li[data-kind="phase"] strong { color: var(--text-primary); }
+.gc-task-nodes small { color: var(--text-muted); font-size: var(--fs-micro); line-height: 16px; font-variant-numeric: tabular-nums; }
+.gc-task-node-detail {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  color: var(--text-muted);
+  font-size: var(--fs-micro);
+  line-height: 16px;
+}

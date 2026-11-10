@@ -1,0 +1,16 @@
+node_modules/
+dist/
+*.bun-build
+.DS_Store
+.env
+.env.*
+*.local
+
+# G-Code's own per-project state (sessions, handoffs)
+.gcode/
+
+# Desktop build outputs and the generated local runtimes (built by desktop/scripts)
+desktop/dist/
+desktop/runtime/
+desktop/src-tauri/target/
+desktop/src-tauri/gen/

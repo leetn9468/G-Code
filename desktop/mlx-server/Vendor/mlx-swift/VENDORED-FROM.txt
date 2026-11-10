@@ -1,0 +1,2 @@
+mlx-swift 0.32.3, commit 19601207e9a0de51e03ee6ec0c3c5f3784275075, with submodules
+Local change: Package.swift tools version lowered from "6.3;(experimentalCGen)" to 6.2 so it builds with Xcode 26.3.

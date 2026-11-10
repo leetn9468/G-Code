@@ -1,0 +1,234 @@
+/* G-Code Desktop — window shell: canvas, titlebar, inset panel, status strip.
+   The sidebar and status strip sit on the darker canvas; the conversation
+   lives in a rounded, slightly lighter panel inset by --panel-gap. */
+
+.gc-app {
+  position: relative;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--canvas);
+  color: var(--text-primary);
+  isolation: isolate;
+}
+
+/* ---- Window chrome (macOS overlay title bar) -------------------------
+   No title row: the traffic lights (moved by trafficLightPosition in
+   tauri.conf.json) and the sidebar toggle share one horizontal axis,
+   --chrome-axis, like a unified toolbar. The toggle floats over the top of
+   the sidebar column, or over the panel's top-left corner when the sidebar is
+   hidden; the rest of the window top is the conversation panel. */
+.gc-titlebar {
+  position: absolute;
+  z-index: 60;
+  top: 0;
+  left: 0;
+  width: var(--sidebar-width);
+  height: var(--titlebar-height);
+  display: flex;
+  align-items: center;
+  padding-left: var(--traffic-lights-end);
+  user-select: none;
+  -webkit-user-select: none;
+}
+.gc-titlebar.is-sidebar-hidden { width: var(--titlebar-collapsed-width); }
+.gc-titlebar-toggle {
+  width: 30px;
+  height: var(--chrome-row);
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  border-radius: var(--radius-md);
+  /* Order matters for the hover override at the end of this file: color, background, transform. */
+  transition: color var(--dur-hover) var(--ease-hover), background var(--dur-hover) var(--ease-hover), transform var(--dur-instant) var(--ease-out);
+}
+.gc-titlebar-toggle:hover { color: var(--text-primary); background: var(--fill-hover); }
+.gc-titlebar-toggle:active { transform: scale(.96); background: var(--fill-pressed); }
+.gc-titlebar-toggle[aria-expanded="false"] { color: var(--text-secondary); }
+
+/* ---- Workbench: sidebar on the canvas + inset conversation panel ------- */
+.gc-workbench {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  padding: var(--panel-gap) var(--panel-gap) 0 0;
+}
+.gc-workbench.is-sidebar-hidden { padding-left: var(--panel-gap); }
+
+.gc-sidebar-slot {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  width: var(--sidebar-width);
+  min-height: 0;
+  overflow: visible;
+  visibility: visible;
+}
+/* Closed: zero width, out of the tab order and a11y tree. */
+.gc-sidebar-slot.is-closed {
+  width: 0;
+  opacity: 0;
+  visibility: hidden;
+}
+/* Width changes are instant (launch, keyboard resize, ⌘B, palette: frequency
+   gate). Only a pointer click on the titlebar toggle slides the drawer; App
+   sets .is-sidebar-animating for that one transition. */
+.gc-workbench.is-sidebar-animating { transition: padding var(--dur-slow) var(--ease-drawer); }
+.gc-workbench.is-sidebar-animating .gc-sidebar-slot {
+  transition: width var(--dur-slow) var(--ease-drawer), opacity var(--dur-base) var(--ease-out), visibility 0s linear 0s;
+}
+/* Closing: fade, slide, then leave the a11y tree when the slide ends. */
+.gc-workbench.is-sidebar-animating .gc-sidebar-slot.is-closed {
+  transition: width var(--dur-slow) var(--ease-drawer), opacity 160ms var(--ease-out), visibility 0s linear var(--dur-slow);
+}
+.gc-sidebar-slot.is-resizing,
+.gc-workbench.is-sidebar-animating .gc-sidebar-slot.is-resizing { transition: none; }
+.gc-sidebar-clip { display: flex; width: 100%; min-width: 0; min-height: 0; overflow: hidden; }
+.gc-sidebar-clip > aside { flex: 0 0 var(--sidebar-width); width: var(--sidebar-width); }
+
+.gc-sidebar-resize {
+  position: absolute;
+  /* Starts below the chrome row, where the window drag region and toggle live. */
+  top: calc(var(--titlebar-height) - var(--panel-gap));
+  bottom: 6px;
+  right: -6px;
+  width: 12px;
+  z-index: 40;
+  cursor: col-resize;
+  touch-action: none;
+  user-select: none;
+  outline: none;
+}
+.gc-sidebar-resize::after {
+  content: '';
+  position: absolute;
+  top: 18%;
+  bottom: 18%;
+  left: 5px;
+  width: 2px;
+  border-radius: 2px;
+  background: transparent;
+  transition: background var(--dur-base) var(--ease-out), top var(--dur-slow) var(--ease-out), bottom var(--dur-slow) var(--ease-out);
+}
+.gc-sidebar-resize:hover::after,
+.gc-sidebar-resize:focus-visible::after,
+.gc-sidebar-resize:active::after { top: 0; bottom: 0; background: var(--accent); }
+
+.gc-main-panel {
+  /* The conversation's compact rules (chat.css) follow this panel's width:
+     the side panel narrows it without the window changing. */
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--panel-radius);
+  background: var(--background);
+  box-shadow: var(--shadow-panel), var(--highlight-top);
+  overflow: hidden;
+}
+
+/* ---- Inline alerts (settings / workspace errors) ----------------------
+   In flow above the conversation (as before the redesign) so a persistent
+   error never covers the breadcrumb or the first lines of the transcript. */
+.gc-shell-alerts {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 10px 14px 0;
+}
+.gc-workbench.is-sidebar-hidden .gc-shell-alerts { margin-left: calc(var(--titlebar-collapsed-width) - var(--panel-gap)); }
+.gc-shell-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px 10px 14px;
+  border-radius: var(--radius-xl);
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--surface-elevated) 86%, var(--error-strong));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--error) 32%, transparent), var(--highlight-top);
+  font-size: var(--fs-ui);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  animation: gc-fade-up var(--dur-base) var(--ease-out);
+}
+.gc-shell-alert > svg { flex-shrink: 0; margin-top: 2px; color: var(--error); }
+.gc-shell-alert > span { flex: 1; min-width: 0; }
+
+/* ---- Status strip (canvas, below the panel) ---------------------------- */
+.gc-statusbar {
+  height: var(--statusbar-height);
+  padding: 0 calc(var(--panel-gap) + 6px) 0 14px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  font-size: var(--fs-micro);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.gc-statusbar > button,
+.gc-statusbar .gc-status-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  min-width: 0;
+  max-width: 32%;
+  padding: 0 7px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+.gc-statusbar > button { transition: color var(--dur-hover) var(--ease-hover), background var(--dur-hover) var(--ease-hover); }
+.gc-statusbar > button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gc-statusbar > button:hover { color: var(--text-primary); background: var(--fill-hover); }
+.gc-statusbar kbd { font: var(--fs-kbd) var(--font-ui); margin-left: 3px; }
+.gc-statusbar-spacer { flex: 1; }
+.gc-status-divider { width: 1px; height: 12px; margin: 0 4px; background: var(--hairline-strong); }
+.gc-runtime-status { display: inline-flex; gap: 7px; align-items: center; white-space: nowrap; padding: 0 7px; }
+.gc-runtime-status i {
+  position: relative;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  transition: background var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
+}
+.gc-runtime-status i.connected { background: var(--text-secondary); }
+.gc-runtime-status i.busy { background: var(--status-yellow); }
+.gc-runtime-status i.busy::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 1px solid var(--status-yellow);
+  animation: gc-breathe 1.6s var(--ease-in-out) infinite;
+}
+.gc-runtime-status.is-busy { color: var(--text-secondary); }
+.gc-status-metric b { color: var(--text-secondary); font-weight: 560; }
+.gc-statusbar .gc-status-error { color: var(--error); }
+.gc-statusbar .gc-status-error b { color: var(--error); }
+
+@media (max-width: 720px) {
+  .gc-sidebar-slot { position: absolute; z-index: 30; top: 0; bottom: var(--statusbar-height); left: 0; max-width: calc(100vw - 40px); background: var(--canvas); box-shadow: var(--sidebar-overlay-shadow); }
+  .gc-sidebar-slot > aside { width: 100%; }
+  .gc-workbench { padding-left: var(--panel-gap); }
+}
+
+/* Hovers land instantly and fade out over --dur-hover (spec §3). */
+@media (hover: hover) and (pointer: fine) {
+  .gc-titlebar-toggle:hover { transition-duration: 0ms, 0ms, var(--dur-instant); }
+  .gc-statusbar > button:hover { transition-duration: 0ms; }
+}
+
+/* A chat is open while another one's task runs. Neutral: this is a fact, not an error. */
+.gc-shell-alert.gc-browse-notice {
+  align-items: center;
+  background: var(--surface-elevated);
+  box-shadow: var(--ring-hairline), var(--highlight-top);
+}
+.gc-browse-notice > .gc-btn { flex-shrink: 0; margin-block: -3px; }

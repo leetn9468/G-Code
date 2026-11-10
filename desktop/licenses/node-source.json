@@ -1,0 +1,8 @@
+{
+  "version": "v24.22.0",
+  "source": "https://nodejs.org/dist/v24.22.0/node-v24.22.0-darwin-arm64.tar.gz",
+  "archiveBytes": 53049576,
+  "archiveSha256": "6a9724d9b50a5f22b4816cded441b5a8d9ddae546191a5e5b7efa5a5e2ee26d5",
+  "binarySha256": "b468fb9c67427c9d3aec07ee1105e63020923a631a9a2a00beb71a7ba3768bfd",
+  "npmVersion": "11.19.1"
+}

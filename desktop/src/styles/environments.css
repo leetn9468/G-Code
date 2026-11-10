@@ -1,0 +1,113 @@
+/* G-Code Desktop — execution environment (the side panel's environment
+   view): two selectable cards. Header and lede come from sidepanel.css. */
+
+.gc-environment-options { display: flex; flex-direction: column; gap: 10px; padding: 0 12px 12px; }
+
+/* Card radius 14 with 14px padding → 36px icon tile at radius 10 (concentric-ish, padding ≤ 24). */
+.gc-environment-option {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 14px 15px;
+  border-radius: 14px;
+  text-align: left;
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--ink-hairline) 2.3%, transparent);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+  transition: background-color var(--dur-hover) var(--ease-hover), box-shadow var(--dur-hover) var(--ease-hover), transform var(--dur-instant) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .gc-environment-option:hover:not(:disabled):not(.selected) {
+    background: var(--fill-hover);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink-hairline) 20%, transparent);
+    transition-duration: 0ms, 0ms, var(--dur-instant), var(--dur-fast); /* hover in instantly; press still eases */
+  }
+}
+.gc-environment-option:active:not(:disabled) { transform: scale(.98); }
+.gc-environment-option:focus-visible { border-radius: 14px; }
+/* Neutral selection like every other list; the Dark Azure check is the only accent. */
+.gc-environment-option.selected {
+  background: var(--fill-selected);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink-hairline) 24%, transparent);
+}
+.gc-environment-option:disabled { opacity: var(--disabled-opacity); cursor: not-allowed; }
+
+.gc-environment-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: var(--radius-lg);
+  color: var(--text-secondary);
+  background: var(--fill-hover);
+  box-shadow: inset 0 0 0 1px var(--hairline), var(--highlight-top);
+}
+.gc-environment-option.selected .gc-environment-icon { color: var(--text-primary); background: color-mix(in srgb, var(--ink-hairline) 7%, transparent); }
+
+.gc-environment-copy { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding-top: 1px; }
+.gc-environment-copy strong {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-primary);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  line-height: 22px;
+}
+.gc-environment-copy em {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 20px;
+  padding: 0 8px 0 7px;
+  border-radius: var(--radius-full);
+  font-size: var(--fs-pill);
+  font-style: normal;
+  font-weight: 560;
+  letter-spacing: .01em;
+  white-space: nowrap;
+}
+.gc-environment-copy em::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.gc-environment-copy em[data-status="ready"] {
+  color: var(--success-text);
+  background: color-mix(in srgb, var(--success) 8%, transparent);
+  box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--success) 20%, transparent);
+}
+.gc-environment-copy em[data-status="unconfigured"] {
+  color: var(--warning);
+  background: var(--warning-subtle);
+  box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--warning) 24%, transparent);
+}
+.gc-environment-copy small { color: var(--text-muted); font-size: var(--fs-meta); line-height: 1.55; text-wrap: pretty; }
+.gc-environment-option.selected .gc-environment-copy small { color: var(--text-secondary); }
+
+/* Radio-style indicator: empty ring, filled Dark Azure check when selected. */
+.gc-environment-check {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  margin-top: 8px;
+  border-radius: 50%;
+  color: var(--text-on-accent);
+  box-shadow: inset 0 0 0 1.5px var(--hairline-strong);
+}
+.gc-environment-option.selected .gc-environment-check { background: var(--accent-solid); box-shadow: var(--raised-highlight); }
+
+.gc-environment-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 2px 14px 16px;
+  color: var(--text-muted);
+  font-size: var(--fs-meta);
+  line-height: 1.55;
+}
+.gc-environment-note > svg { flex-shrink: 0; margin-top: 2px; color: var(--text-faint); }
+.gc-environment-note.busy { color: var(--warning); }
+.gc-environment-note.busy > svg { color: var(--warning); }

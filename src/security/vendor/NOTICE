@@ -1,0 +1,5 @@
+Portions adapted from @anthropic-ai/sandbox-runtime 0.0.81
+Copyright Anthropic PBC
+https://github.com/anthropics/sandbox-runtime
+Apache License, Version 2.0
+G-Code modifications: fixed security opt-ins, filesystem-only protection in every mode, explicit per-call profiles and custom proxy/monitor.

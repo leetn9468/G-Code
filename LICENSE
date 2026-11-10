@@ -1,0 +1,87 @@
+Required Notice: Copyright 2026 Shadow Foundry
+
+# G-Code Community License 1.0
+
+## 1. Acceptance
+
+Shadow Foundry ("we", "us") makes G-Code (the "software") available under these terms. "You" means the person or organization that gets the software. By using, copying, changing or sharing the software, you accept these terms. If you do not accept them, you have no permission to do any of those things.
+
+## 2. Free use
+
+You may use, copy and change the software free of charge if you are one of these:
+
+(a) **An individual** using it on your own behalf, for any purpose, including paid work. This covers personal projects, study, research, freelance and self-employed work, work you deliver to clients, and selling what you make with the software. A company whose only person using the software is its owner counts as an individual.
+
+(b) **A student, teacher, school, college or university** using it for teaching, learning or non-commercial academic research.
+
+(c) **A non-profit organization recognized as charitable where it is based**, using it for its charitable work.
+
+## 3. Organizations pay per seat
+
+Any other use by or for an organization needs a paid commercial license from us, with one seat for each person who uses the software. An organization is a company, partnership, government body, or any other group or legal entity. Use for an organization includes use by its employees in their work, and use by anyone the organization provides the software to or directs to use it. The price and terms of a seat are in `COMMERCIAL.md`.
+
+An outside contractor who chooses and runs their own copy in their own independent business is using it under 2(a), unless the organization provides the software or directs its use.
+
+An organization may try the software for 30 days before buying seats.
+
+## 4. Limits for everyone
+
+Whether you use the software free or with seats, you may not, without our written permission:
+
+(a) sell, rent, lease or sublicense the software or a changed version of it, or charge for access to it, including by offering it as a hosted or managed service;
+
+(b) build a business on the software: offer, for money or through a company you run, a product or service that is the software, a changed version of it, or a work that contains a substantial part of its source code;
+
+(c) remove or change the Required Notice, these terms, or the license notices of third-party parts.
+
+Using the software as a tool to make other things is not limited by this section.
+
+## 5. What you make with the software
+
+These terms do not cover what you create with the software. Code, text and other output you make with G-Code are yours, subject to your agreements with others (such as the terms of any model provider you connect), and you may use them for any purpose.
+
+## 6. Changes and sharing
+
+You may change the software for any use these terms allow. A changed version stays under these terms.
+
+You may share copies of the software, changed or not, free of charge, if:
+
+- everyone who gets a copy from you also gets these terms and the Required Notice;
+- a changed version says prominently that it was changed, and by whom;
+- you do not present a changed version as the official G-Code, or as made or endorsed by us.
+
+People who get a copy from you get their permissions from us, under these terms, not from you.
+
+## 7. Patents
+
+We grant you a license under the patent claims we can license that you would infringe by using the software as we publish it, for the uses these terms allow. This patent license does not cover changes or additions made by anyone else, and it does not license any other patent or patent application of ours. If you claim, in writing or in court, that the software infringes a patent, your patent license ends at once.
+
+## 8. Names
+
+These terms give no rights to our names or logos, except to say truthfully where the software came from.
+
+## 9. Third-party parts
+
+Some parts of the software come from others and keep their own licenses, which are stored with them: `src/security/vendor/` (Apache-2.0, with its `LICENSE` and `NOTICE`) and the bundled runtimes listed in `desktop/licenses/`. Those licenses, not these terms, govern those parts.
+
+## 10. Contributions
+
+If you send us a contribution to the software, such as a pull request or patch, you grant us a perpetual, worldwide, royalty-free, irrevocable license to use, change, publish and license it under any terms, including these terms and paid commercial licenses, together with a license under any of your patent claims the contribution would otherwise infringe. You confirm that you have the right to grant these licenses. `CONTRIBUTING.md` explains this.
+
+## 11. Ending
+
+If you break these terms, your permissions end. The first time we tell you in writing that you have broken them, your permissions continue if, within 30 days of that notice, you comply fully and take practical steps to correct past violations.
+
+## 12. No warranty and no liability
+
+***As far as the law allows, the software comes as is, without any warranty or condition of any kind, and we are not liable to you for any damages arising out of these terms or the use or nature of the software, under any kind of legal claim.***
+
+## 13. Governing law and disputes
+
+These terms, and any commercial license we grant for the software unless it says otherwise, are governed by the federal laws of the United States and the laws of the State of Delaware, without regard to conflict-of-law rules. The United Nations Convention on Contracts for the International Sale of Goods does not apply.
+
+The courts of Malaysia have jurisdiction over any dispute about the software or these terms, and you agree to that jurisdiction. Any claim you bring against us must be brought only in those courts. We may also bring a claim against you in any other court that has jurisdiction over you, for example to stop an infringement where it happens.
+
+## 14. Other
+
+We may also offer the software under other terms, such as commercial licenses. Nothing in these terms limits rights you have under law, such as fair use. If part of these terms cannot be enforced, the rest still applies. Any permission beyond these terms must be in writing from us.
