@@ -264,6 +264,10 @@
    beside it, until the CLI adds it (then it settles to an ordinary prompt). */
 .gc-message-user .gc-message-card { transition: opacity var(--dur-base) var(--ease-out); }
 .gc-message-user[data-pending] .gc-message-card { opacity: .64; }
+/* Files sent with the message, above its words. */
+.gc-message-attachments { margin-bottom: 8px; }
+.gc-message-attachments:last-child { margin-bottom: 0; }
+.gc-message-card .gc-attachment { background: color-mix(in srgb, var(--text-primary) 7%, transparent); }
 .gc-message-card {
   max-width: min(82%, 64ch);
   min-width: 0;

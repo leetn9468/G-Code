@@ -10,6 +10,7 @@
 
 import type { ContentBlock, LLMMessage, TextBlock, ToolResultBlock } from './types.js'
 import { APIError } from './retry.js'
+import { estimateImageTokens } from './images.js'
 import { isImageRejection, isPromptTooLongError, parsePromptTooLongTokenCounts } from '../utils/errorParsing.js'
 
 export interface Recovery {
@@ -64,9 +65,12 @@ function imageSlots(message: LLMMessage): Array<{ holder: Array<ContentBlock | T
   return slots
 }
 
-/** The file a FileRead image came from: its result starts with "Image: <path> (W×H)". */
-function imageSource(slot: { holder: Array<ContentBlock | TextBlock> }): string | undefined {
-  const label = slot.holder.find((block): block is TextBlock => block.type === 'text' && block.text.startsWith('Image: '))
+/**
+ * The file a FileRead image came from: its result starts with "Image: <path> (W×H)". A user message
+ * with attached images holds several, each label before its image: the nearest one before it names it.
+ */
+function imageSource(slot: { holder: Array<ContentBlock | TextBlock>; index: number }): string | undefined {
+  const label = slot.holder.slice(0, slot.index).reverse().find((block): block is TextBlock => block.type === 'text' && block.text.startsWith('Image: '))
   return label ? /^Image: (.+?) \(\d+×\d+\)$/.exec(label.text)?.[1] ?? label.text.slice(7) : undefined
 }
 
@@ -90,8 +94,20 @@ function dropRejectedImages(error: unknown, wire: LLMMessage[], options: Recover
   }
 }
 
-/** Characters a message carries as sent (role and content; a saved continuation is not sent twice). */
-const chars = (message: LLMMessage) => typeof message.content === 'string' ? message.content.length : JSON.stringify(message.content).length
+/**
+ * Characters a message's content carries as sent (a saved continuation is not sent twice). An image
+ * counts as the characters of its tokens (about four a token), not its base64 data: a screenshot
+ * costs a few thousand tokens however many megabytes it is, so its data would make the message it
+ * is in (a user's message with attached images) look like what made the request too long.
+ */
+function contentChars(content: LLMMessage['content'] | ToolResultBlock['content']): number {
+  if (typeof content === 'string') return content.length
+  const blocks = content as Array<ContentBlock | TextBlock>
+  const images = blocks.flatMap(block => block.type === 'image' ? [block] : block.type === 'tool_result' && Array.isArray(block.content) ? block.content.filter(child => child.type === 'image') : [])
+  const shape = blocks.map(block => block.type === 'image' ? { type: 'image' } : block.type === 'tool_result' && Array.isArray(block.content) ? { ...block, content: block.content.map(child => child.type === 'image' ? { type: 'image' } : child) } : block)
+  return JSON.stringify(shape).length + (images.length ? estimateImageTokens([{ role: 'user', content: images }]) * 4 : 0)
+}
+const chars = (message: LLMMessage) => contentChars(message.content)
 
 /**
  * The prompt is larger than the model's window. This turn's message and tool results are the new
@@ -117,7 +133,8 @@ function dropOversizedContent(error: unknown, wire: LLMMessage[], options: Recov
       if (later.role !== 'user' || typeof later.content === 'string') continue
       later.content.forEach((block, index) => {
         if (block.type !== 'tool_result') return
-        const size = JSON.stringify(block.content).length
+        // Without images, as before: the result's JSON. With them, images by their tokens.
+        const size = typeof block.content === 'string' ? JSON.stringify(block.content).length : contentChars(block.content)
         candidates.push({ size, kind: 'result', drop: () => { (later.content as ContentBlock[])[index] = { ...block, is_error: true, content: `[Result removed: it made the request too long for the model${sizes}. Run the call again with narrower output if it is still needed.]` } } })
       })
     }

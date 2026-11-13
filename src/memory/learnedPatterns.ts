@@ -19,7 +19,7 @@
  */
 
 import { readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, posix } from 'node:path'
 import { generatedDataPath, generatedFolder } from '../session/outputs.js'
 
 export interface LearnedPattern {
@@ -125,11 +125,18 @@ export function verificationOf(command: string, cwd?: string): { key: string; st
   return found && { key: found.key, status: found.status }
 }
 
-/** Where a `cd` or `pushd` part goes, as the shell reads its argument: without quotes, escapes or a trailing slash. */
+/** Where a `cd` or `pushd` part goes, as the shell reads its argument: without quotes, escapes or a trailing slash (`/` itself stays). */
 function placeOf(text: string): string {
   const argument = text.replace(/^\S+\s+/, '').trim()
   const quoted = /^(["'])(.*)\1$/.exec(argument)
-  return (quoted ? quoted[2]! : argument.replace(/\\(.)/g, '$1')).replace(/\/+$/, '')
+  return (quoted ? quoted[2]! : argument.replace(/\\(.)/g, '$1')).replace(/(.)\/+$/, '$1')
+}
+
+/** Whether a `cd` to `place` stays where the command runs: `.`, `./.`, or the path of `here` itself, however written (`/p/proj/.`). */
+function staysHere(place: string, here: string | undefined): boolean {
+  if (!place) return false
+  if (posix.normalize(place) === '.') return true
+  return here !== undefined && place.startsWith('/') && posix.normalize(place).replace(/(.)\/+$/, '$1') === here
 }
 
 function verification(command: string, cwd?: string): { key: string; status: VerificationStatus; executables: string[]; managerLast: boolean } | undefined {
@@ -143,7 +150,8 @@ function verification(command: string, cwd?: string): { key: string; status: Ver
   const here = cwd?.replace(/\/+$/, '')
   const places = setup.filter(text => /^(?:cd|pushd)\s/.test(text)).map(placeOf)
   // A check somewhere else says nothing about this project; where a variable or `~` leads is not known.
-  if (places.some(place => /^[~$-]/.test(place) || place.split('/').includes('..') || (place.startsWith('/') && here !== undefined && place !== here && !place.startsWith(`${here}/`)))) return
+  const inside = (place: string) => { const path = posix.normalize(place).replace(/(.)\/+$/, '$1'); return path === here || path.startsWith(`${here}/`) }
+  if (places.some(place => /^[~$-]/.test(place) || place.split('/').includes('..') || (place.startsWith('/') && here !== undefined && !inside(place)))) return
   let last = first
   while (operators[last] === '&&' && isCheck(texts[last + 1])) last++
   const checks = texts.slice(first, last + 1)
@@ -151,7 +159,7 @@ function verification(command: string, cwd?: string): { key: string; status: Ver
   const after = operators.slice(last)
   const executableOf = (text: string) => text.replace(ENVIRONMENT, '').split(/\s+/)[0]!
   return {
-    key: [...setup.filter(text => !/^cd\s/.test(text) || placeOf(text) !== here), ...new Set(checks)].join(' && '),
+    key: [...setup.filter(text => !/^cd\s/.test(text) || !staysHere(placeOf(text), here)), ...new Set(checks)].join(' && '),
     status: after.some(operator => operator !== '&&') ? 'unknown' : after.length ? 'success-only' : 'exit',
     executables: checks.map(executableOf),
     managerLast: !texts.slice(last + 1).some(text => MANAGER.test(executableOf(text))),

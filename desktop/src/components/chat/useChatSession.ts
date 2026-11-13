@@ -19,10 +19,11 @@ import { parsePermissionRule } from '../../../../src/shared/permissionRules'
 import { assistantCompleteUpdate, assistantTextUpdate, recordStreamed, streamedTrimUpdate, type StreamLog } from './assistantStream'
 import { isSteerableText, nextResendCount, parseReplyRestart, parseSteerEvent, replyRestartStatus, resendText, resetsConversation, unsavedSteers } from './turnEvents'
 import { beforeInterruptedTurn, savedConversation, savedTools } from './savedConversation'
+import { attachmentRefsFrom, type AttachmentRef } from '../../../../src/shared/attachments'
 
 type EventPayload = Record<string, unknown> & { timestamp?: number }
 /** `typed`: the user's own words in the composer, which go back there if the turn never starts (not a continuation or a resend, whose callers keep their text). */
-type PendingTurn = { id: string; text: string; dispatched: boolean; historyAdded: boolean; typed?: boolean }
+type PendingTurn = { id: string; text: string; attachments?: AttachmentRef[]; dispatched: boolean; historyAdded: boolean; typed?: boolean }
 /**
  * Text sent while a turn ran, until the CLI adds it (it then leaves the list) or it comes back. `sending`: the frame is on its way.
  * `at`: when it was sent. `composer`: the user ended its turn at the context-full question, so it goes back to the composer
@@ -119,7 +120,8 @@ const TURN_STARTED: Record<string, string> = {
 }
 
 /** A finished handoff: the work continues in a new session in the same folder. `request` is the user's request in the old session (older CLIs omit it). */
-export interface SessionHandoff { summary: string; path: string; sessionId: string; request?: string; calibration?: TokenCalibration; budgetHandoff?: BudgetHandoff; stalls?: number }
+/** `attachments`: files attached to the handed-off request; the continuation sends them again, so the new session sees the images and may read the files. */
+export interface SessionHandoff { summary: string; path: string; sessionId: string; request?: string; calibration?: TokenCalibration; budgetHandoff?: BudgetHandoff; stalls?: number; attachments?: AttachmentRef[] }
 /** The composer's hint while the session that takes over from a handoff starts. */
 export const HANDOFF_STARTING = 'Starting a new session from the handoff…'
 /** The activity while the CLI writes the handoff, after the user chose to continue in a new session. */
@@ -270,10 +272,10 @@ export function useChatSession(provider: ProviderName, model: string, ollamaHost
   /** The user chose Stop at the context-full question; the turn is ending at their word. Cleared by the next turn. */
   const contextStopped = useRef(false)
   /** Text handed back to the composer (undelivered steers after Stop or a reset, a resend that was refused). */
-  const [draft, setDraft] = useState<{ text: string }>()
-  const restoreDraft = useCallback((texts: string[]) => {
+  const [draft, setDraft] = useState<{ text: string; attachments?: AttachmentRef[] }>()
+  const restoreDraft = useCallback((texts: string[], attachments?: AttachmentRef[]) => {
     // A new object each time: the composer puts it before whatever it holds then.
-    if (texts.length) setDraft({ text: resendText(texts) })
+    if (texts.length || attachments?.length) setDraft({ text: resendText(texts.filter(Boolean)), ...(attachments?.length ? { attachments } : {}) })
   }, [])
   /** Undelivered steers come back to the desktop when the turn ends: the CLI adds nothing after that. */
   const returnUndelivered = useCallback(() => {
@@ -476,7 +478,8 @@ export function useChatSession(provider: ProviderName, model: string, ollamaHost
       subscribe('cli-handoff', ({ payload }) => {
         if (!acceptingEvents.current || typeof payload.summary !== 'string' || typeof payload.path !== 'string') return
         setContextFull(null)
-        setHandoff({ summary: payload.summary, path: payload.path, sessionId: String(payload.sessionId ?? ''), request: typeof payload.request === 'string' ? payload.request : undefined, calibration: tokenCalibration(payload.calibration), stalls: typeof payload.stalls === 'number' && Number.isInteger(payload.stalls) && payload.stalls > 0 ? payload.stalls : undefined })
+        const attachments = attachmentRefsFrom(payload.attachments)
+        setHandoff({ summary: payload.summary, path: payload.path, sessionId: String(payload.sessionId ?? ''), request: typeof payload.request === 'string' ? payload.request : undefined, calibration: tokenCalibration(payload.calibration), stalls: typeof payload.stalls === 'number' && Number.isInteger(payload.stalls) && payload.stalls > 0 ? payload.stalls : undefined, ...(attachments?.length ? { attachments } : {}) })
       }),
       subscribe('cli-tool-use', ({ payload }) => {
         if (!acceptingEvents.current || typedToolEvents) return
@@ -525,7 +528,7 @@ export function useChatSession(provider: ProviderName, model: string, ollamaHost
         if (!acceptingEvents.current) return
         const unsent = pendingTurn.current
         lifecycle.current.exited(); discardUnsentTurn(); endTurnStream(); returnUndelivered()
-        if (unsent?.typed && !unsent.dispatched) restoreDraft([unsent.text])
+        if (unsent?.typed && !unsent.dispatched) restoreDraft([unsent.text], unsent.attachments)
         const complete = assistantCompleteUpdate(activeAssistant)
         if (complete) setMessages(complete)
         // Nothing more will come for what was running: a card or Tasks row must not count on for good
@@ -611,26 +614,30 @@ export function useChatSession(provider: ProviderName, model: string, ollamaHost
   /** Resolves true once the text was handed to the CLI; false when it was refused, cancelled or failed. */
   /** `options.handoff`: this is the continuation of that handoff, the one message that may start the session taking over. */
   /** `options.resent`: the composer's resend of returned steers; it hands refused text back itself. */
-  const send = useCallback(async (text: string, options: { handoff?: SessionHandoff; resent?: boolean } = {}): Promise<boolean> => {
-    if (sending.current) return false
-    if (lostSession.current) return false
-    if (networkRef.current && !networkRef.current.decision) { setNetworkOpen(true); return false }
-    if (budgetRef.current && budgetRef.current.phase !== 'active' && !options.handoff) { setBudgetOpen(true); return false }
-    if ((budgetRef.current || normalizeBudget(budgetSettings).enabled) && budgetModelProblem(provider, model, provider !== 'ollama' || localBudgetEndpoint(ollamaHost))) { addSystem(budgetModelProblem(provider, model, provider !== 'ollama' || localBudgetEndpoint(ollamaHost))!, 'error'); return false }
+  /** `options.attachments`: files attached in the composer; they go back to it with the text when the message cannot be sent. */
+  const send = useCallback(async (text: string, options: { handoff?: SessionHandoff; resent?: boolean; attachments?: AttachmentRef[] } = {}): Promise<boolean> => {
+    const typed = !options.handoff && !options.resent
+    // The composer cleared itself when it handed this over. A typed message with files that is not
+    // sent goes back to it, files and all: they exist nowhere else. (Text alone keeps its behaviour.)
+    const refused = () => { if (typed && options.attachments?.length) restoreDraft([text], options.attachments); return false }
+    if (sending.current) return refused()
+    if (lostSession.current) return refused()
+    if (networkRef.current && !networkRef.current.decision) { setNetworkOpen(true); return refused() }
+    if (budgetRef.current && budgetRef.current.phase !== 'active' && !options.handoff) { setBudgetOpen(true); return refused() }
+    if ((budgetRef.current || normalizeBudget(budgetSettings).enabled) && budgetModelProblem(provider, model, provider !== 'ollama' || localBudgetEndpoint(ollamaHost))) { addSystem(budgetModelProblem(provider, model, provider !== 'ollama' || localBudgetEndpoint(ollamaHost))!, 'error'); return refused() }
     // Only the continuation itself may start the session that takes over from a handoff.
-    if (handoffStarting.current && !options.handoff) { addSystem(`${HANDOFF_STARTING} Send your message once it has started.`); return false }
+    if (handoffStarting.current && !options.handoff) { addSystem(`${HANDOFF_STARTING} Send your message once it has started.`); return refused() }
     const blocked = executionBlockReason(environment)
-    if (blocked) { addSystem(blocked, 'error'); return false }
+    if (blocked) { addSystem(blocked, 'error'); return refused() }
     if (resetsConversation(text)) { await newSession(); return false }
     const commandOnly = /^\/(compact|context)(?:\s|$)/.test(text)
-    if (!cwd) { addSystem('Open a project folder before sending a message.', 'error'); return false }
+    if (!cwd) { addSystem('Open a project folder before sending a message.', 'error'); return refused() }
     if ((provider === 'ollama' || provider === 'local') && !model.trim()) {
       addSystem('Choose a local model in Provider (⌘P) before sending a message.', 'error')
-      return false
+      return refused()
     }
     const version = configurationVersion.current
     const conversation = conversationVersion.current
-    const typed = !options.handoff && !options.resent
     let started: PendingTurn | undefined
     sending.current = true
     contextStopped.current = false
@@ -641,10 +648,11 @@ export function useChatSession(provider: ProviderName, model: string, ollamaHost
       // prompt, so the old snapshot cannot replace a newly submitted turn.
       await lifecycle.current.settled()
       if (version !== configurationVersion.current || conversation !== conversationVersion.current) throw new SessionCancelledError()
-      const turn: PendingTurn = { id: id(), text, dispatched: false, historyAdded: false, typed: typed && !commandOnly }
+      const attachments = options.attachments?.length ? options.attachments : undefined
+      const turn: PendingTurn = { id: id(), text, ...(attachments ? { attachments } : {}), dispatched: false, historyAdded: false, typed: typed && !commandOnly }
       started = turn
       pendingTurn.current = turn; incompleteTurn.current = turn
-      if (!commandOnly) setMessages((current) => [...current, { id: turn.id, role: 'user', content: text, timestamp: Date.now() }])
+      if (!commandOnly) setMessages((current) => [...current, { id: turn.id, role: 'user', content: text, timestamp: Date.now(), ...(attachments ? { metadata: { attachments } } : {}) }])
       if (!isTauri()) {
         addSystem('CLI integration is available in the Tauri app. Run `bun run tauri dev` to start a native session.')
         pendingTurn.current = null; incompleteTurn.current = null; sending.current = false; setStreaming(false); setActivity('')
@@ -659,12 +667,12 @@ export function useChatSession(provider: ProviderName, model: string, ollamaHost
         // still acknowledging a prompt already handed to the backend.
         resumeId.current = activeSessionId.current ?? resumeId.current
         await sendMessage(`/session-controls ${permission} ${effort}`)
-        await sendMessage(text)
+        await sendMessage(text, attachments?.map(attachment => attachment.path))
         // A message that picks a handoff up (its continuation, or the retry a notice suggests) settles that notice only.
         setHandoffNotices((notices) => settleHandoffNotices(notices, text, options.handoff && handoffKey(options.handoff)))
         if (conversation === conversationVersion.current) {
           turn.historyAdded = true
-          if (!commandOnly) setHistory((current) => [...current, text])
+          if (!commandOnly && text) setHistory((current) => [...current, text])
         }
         if (pendingTurn.current === turn) pendingTurn.current = null
       }, listenersReady.current)
@@ -675,7 +683,7 @@ export function useChatSession(provider: ProviderName, model: string, ollamaHost
         if (provider === 'local') setModelRuntime({ phase: 'failed', message: String(error) })
         discardUnsentTurn(); sending.current = false; setStreaming(false); setActivity('')
         // It never reached the CLI, and the composer was cleared: the text exists nowhere else.
-        if (typed && !started?.dispatched && !(error instanceof SessionCancelledError)) restoreDraft([text])
+        if (typed && !started?.dispatched && !(error instanceof SessionCancelledError)) restoreDraft([text], options.attachments)
       }
       return false
     }
@@ -696,7 +704,7 @@ export function useChatSession(provider: ProviderName, model: string, ollamaHost
     // 'delivered' event is no longer accepted) is in the saved turn already.
     const unsettled = steers.current.map(({ text, at }) => ({ text, at }))
     let handedBack = false
-    const handBack = (saved?: ChatMessage[], first: string[] = []) => { if (!handedBack) { handedBack = true; restoreDraft([...first, ...unsavedSteers(unsettled, saved)]) } }
+    const handBack = (saved?: ChatMessage[], first: string[] = [], attachments?: AttachmentRef[]) => { if (!handedBack) { handedBack = true; restoreDraft([...first, ...unsavedSteers(unsettled, saved)], attachments) } }
     steers.current = []; setResendPending(false); endTurnStream()
     setMessages((current) => current.some(message => message.pending) ? current.filter(message => !message.pending) : current)
     const cancelled = stop(async () => {
@@ -711,7 +719,7 @@ export function useChatSession(provider: ProviderName, model: string, ollamaHost
       // the rest (not when the user has moved on from this chat by choice).
       const giveBack = here && !restored && !!turn?.typed
       // Even when the user has moved on: steers exist nowhere else.
-      handBack(restored?.messages, giveBack ? [turn!.text] : [])
+      handBack(restored?.messages, giveBack ? [turn!.text] : [], giveBack ? turn!.attachments : undefined)
       if (!here) return
       if (restored) {
         setMessages(restored.messages)
@@ -888,7 +896,8 @@ export function useChatSession(provider: ProviderName, model: string, ollamaHost
         const current = () => conversation === conversationVersion.current && version === configurationVersion.current
         await reset
         if (await waitUntil(() => !sending.current, { cancelled: () => !current() })) {
-          dispatched = await sendRef.current(next.budgetHandoff ? budgetContinuation(next.budgetHandoff, next.sessionId) : handoffContinuation(next.summary, next.path, next.sessionId, next.request, next.stalls), { handoff: next })
+          const attachments = next.budgetHandoff ? attachmentRefsFrom(next.budgetHandoff.attachments) : next.attachments
+          dispatched = await sendRef.current(next.budgetHandoff ? budgetContinuation(next.budgetHandoff, next.sessionId) : handoffContinuation(next.summary, next.path, next.sessionId, next.request, next.stalls), { handoff: next, ...(attachments?.length ? { attachments } : {}) })
         }
       } catch { dispatched = false }
       finally {

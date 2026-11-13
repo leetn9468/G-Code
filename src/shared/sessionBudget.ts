@@ -2,6 +2,7 @@ import { LONG_PROMPT_PRICING, PRICING } from './pricing.js'
 import type { TokenUsage } from '../llm/types.js'
 import { validUsage } from './usageTotals.js'
 import { handoffContinuation } from './execution.js'
+import { attachmentRefsFrom, type AttachmentRef } from './attachments.js'
 
 /** Nano-dollars keep tiny requests nonzero without floating-point ledger sums. */
 export const MONEY_SCALE = 1_000_000_000
@@ -43,6 +44,8 @@ export interface BudgetRequest {
 export interface BudgetHandoff {
   path: string; summary: string; request: string; author: string; writerCost: number; at: number; limit: number
   saveError?: string
+  /** Files attached to the request (src/shared/attachments.ts): the continuation sends them again. */
+  attachments?: AttachmentRef[]
 }
 export interface BudgetStage { number: number; limit: number; reserve: number; spentAtStart: number; spentAtEnd?: number; handoff?: BudgetHandoff }
 export interface SessionBudget {
@@ -62,7 +65,7 @@ export const budgetWriterRemaining = (budget: SessionBudget): number => Math.max
 /** Missing/invalid saved accounting is an error, never a free reset. */
 export function validateBudget(budget: SessionBudget): void {
   const units = (value: unknown) => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && value <= 1_000_000 * MONEY_SCALE
-  const handoff = (value: BudgetHandoff | undefined) => value === undefined || !!value && typeof value.path === 'string' && typeof value.summary === 'string' && typeof value.request === 'string' && typeof value.author === 'string' && units(value.writerCost) && units(value.limit) && units(value.at) && (value.saveError === undefined || typeof value.saveError === 'string')
+  const handoff = (value: BudgetHandoff | undefined) => value === undefined || !!value && typeof value.path === 'string' && typeof value.summary === 'string' && typeof value.request === 'string' && typeof value.author === 'string' && units(value.writerCost) && units(value.limit) && units(value.at) && (value.saveError === undefined || typeof value.saveError === 'string') && (value.attachments === undefined || attachmentRefsFrom(value.attachments) !== undefined)
   if (!budget || budget.version !== 1 || !units(budget.limit) || !budget.limit || !units(budget.reserve) || budget.reserve > budget.limit / 2 || !units(budget.initialSpent)
     || !Number.isSafeInteger(budget.stage) || budget.stage < 1 || !['active', 'writing', 'held'].includes(budget.phase)
     || !Array.isArray(budget.requests) || !Array.isArray(budget.stages) || budget.requests.length > 100_000

@@ -16,6 +16,7 @@ mod cli;
 mod dsh;
 mod mcp_cli;
 mod storage;
+mod attachments;
 mod incidents;
 mod browser_tools;
 mod local_models;
@@ -246,6 +247,9 @@ pub fn run() {
             close_browser_trace,
             validate_working_directory,
             send_message,
+            attachments::inspect_attachments,
+            attachments::save_pasted_image,
+            attachments::discard_pasted_image,
             stop_session,
             list_all_sessions,
             list_searchable_sessions,

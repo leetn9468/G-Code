@@ -512,6 +512,15 @@ const MIN_REQUEST_CHARS = 1000
  * messages: the model carried on with no request at all, or only with a summary's paraphrase.
  */
 function cutRequest(request: LLMMessage, allowed: number, save?: () => string | undefined): { message: LLMMessage; path?: string } {
+  // A message with attached images (src/engine/attachments.ts): its words are the first block, cut as
+  // any request is; the images and their labels after it stay, or the model would lose them unsaid.
+  if (typeof request.content !== 'string' && request.content[0]?.type === 'text' && request.content.some(block => block.type === 'image')) {
+    const [first, ...attached] = request.content
+    const words = (first as { text: string }).text
+    const cut = cutRequest({ ...request, content: words }, allowed, save)
+    if (cut.message.content === words) return { message: request }
+    return { path: cut.path, message: { ...request, content: [{ type: 'text', text: cut.message.content as string }, ...attached] } }
+  }
   const text = typeof request.content === 'string' ? request.content : request.content.flatMap(block => block.type === 'text' ? [block.text] : []).join('\n')
   const keep = Math.max(MIN_REQUEST_CHARS, Math.floor(allowed * 4 * 0.95) - 400)
   if (text.length <= keep) return { message: request }

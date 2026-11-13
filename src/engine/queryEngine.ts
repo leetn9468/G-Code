@@ -48,6 +48,9 @@ import type {
 import type { ConfirmTool, Tool } from '../tools/tool.js'
 import type { ToolUseContext } from '../tools/tool.js'
 import { createReadFileState, invalidateFileReadDedup } from '../tools/impl/FileReadTool.js'
+import { attachmentContent, prepareAttachments } from './attachments.js'
+import { requestWithAttachments, usableAttachments, type AttachmentRef } from '../shared/attachments.js'
+import { grantAttachedFiles, savedAttachments } from '../session/attachments.js'
 import type { Store } from '../state/store.js'
 import type { AppState, SessionContext } from '../types.js'
 import { nodeEnvironment, nodeEnvironmentPrompt } from '../runtime/node.js'
@@ -338,9 +341,11 @@ export class QueryEngine {
    */
   /** The skills and MCP prompts the running turn's message ran (its context block carries them). */
   private turnInvocations: ReadonlyArray<TurnInvocation> = []
+  /** Files the user attached to this turn's message, as they were when it started (see src/engine/attachments.ts). */
+  private turnAttachments: AttachmentRef[] = []
   /** The Changes notice for a project past the listing cap goes out once. */
   private toldListingCap = false
-  private partialTurn: { input: string; text: string; tools: Map<string, string>; ran: boolean; mutating: boolean; startedAt: number; wire: LLMMessage[]; transfers?: Map<string, OpenTransfer>; steers: Array<{ text: string; at: number }> } | null = null
+  private partialTurn: { input: string; attachments: AttachmentRef[]; text: string; tools: Map<string, string>; ran: boolean; mutating: boolean; startedAt: number; wire: LLMMessage[]; transfers?: Map<string, OpenTransfer>; steers: Array<{ text: string; at: number }> } | null = null
   /** Rounds of the running turn so far; with `failedTurn`, what a sub-agent's parent reports when it fails. */
   private turnIterations = 0
   private lastFailure: { text: string; iterations: number } | undefined
@@ -473,8 +478,9 @@ export class QueryEngine {
   private async performBudgetHandoff(pending: string, signal: AbortSignal): Promise<void> {
     const state = this.budget.store.getState(), before = state.budget!
     const messages = this.partialTurn?.wire ?? (state.contextMessages ?? state.messages).filter(m => m.role !== 'system').map(contextWire)
-    const requests = state.messages.filter(m => m.role === 'user').map(m => m.content)
-    const request = this.partialTurn?.input ?? requests.at(-1) ?? before.pendingRequest ?? pending
+    // A message of attached files only has no words: its files name it.
+    const requests = state.messages.filter(m => m?.role === 'user').map(m => requestWithAttachments(m.content, savedAttachments([m])))
+    const request = (this.partialTurn ? requestWithAttachments(this.partialTurn.input, this.partialTurn.attachments) : undefined) ?? requests.at(-1) ?? before.pendingRequest ?? pending
     const goal = requests[0] ?? request
     const remaining = budgetWriterRemaining(before)
     const identity = this.writerClient.modelIdentity?.(this.model) ?? { provider: 'unknown', model: this.model }
@@ -499,7 +505,8 @@ export class QueryEngine {
     catch (error) { saveError = error instanceof Error ? error.message : String(error) }
     const after = this.budget.state!
     const writerCost = after.requests.filter(r => r.stage === after.stage && r.purpose === 'handoff').reduce((n, r) => n + (r.charged ?? r.reserved), 0)
-    this.budget.recordHandoff({ path, summary, request, author, writerCost, at: Date.now(), limit: after.limit, ...(saveError ? { saveError } : {}) })
+    const attachments = usableAttachments(this.turnAttachments)
+    this.budget.recordHandoff({ path, summary, request, author, writerCost, at: Date.now(), limit: after.limit, ...(saveError ? { saveError } : {}), ...(attachments.length ? { attachments } : {}) })
     this.onRuntime?.({ type: 'system', text: path ? `Budget reached. Handoff saved to ${path} · ${author} · Writer ${moneyLabel(writerCost)}.` : saveError! })
   }
 
@@ -722,7 +729,7 @@ export class QueryEngine {
     wire.push({ role: 'user', content: `[The process ended before this turn finished. ${INCOMPLETE_TURN}${resume}]` })
     return {
       messages: [
-        { id: randomUUID(), role: 'user', content: partial.input, timestamp: partial.startedAt }, ...steerMessages(partial.steers),
+        userMessage(partial.input, partial.attachments, partial.startedAt), ...steerMessages(partial.steers),
         { id: randomUUID(), role: 'assistant', content, timestamp: now, metadata: { interrupted: true, reason: note } },
       ],
       contextMessages: wire.map(message => storedMessage(message, now)),
@@ -1046,22 +1053,25 @@ export class QueryEngine {
   // Main Entry Point
   // --------------------------------------------------------------------------
 
-  /** `invocations`: skills and MCP prompts the user's message ran (see src/cli/slashCommands.ts). */
-  async submitQuery(input: string, options: { invocations?: ReadonlyArray<TurnInvocation> } = {}): Promise<QueryResult> {
+  /** `invocations`: skills and MCP prompts the user's message ran (see src/cli/slashCommands.ts). `attachments`: absolute paths of the files the user attached to it. */
+  async submitQuery(input: string, options: { invocations?: ReadonlyArray<TurnInvocation>; attachments?: ReadonlyArray<string> } = {}): Promise<QueryResult> {
     await currentGuard()?.check()
     if (activeEngines.has(this)) throw new Error('A query is already running in this engine')
     this.turnInvocations = options.invocations ?? []
+    // Files attached to earlier messages stay readable without asking, in a resumed session too.
+    grantAttachedFiles(savedAttachments(this.store.getState().messages))
+    const attachments = this.turnAttachments = prepareAttachments(options.attachments ?? [])
     currentGuard()?.beginTurn(input, this.ownsUsage)
     if (this.persist) { const state = this.store.getState(); assertSessionOwner(state.cwd, state.sessionId) }
     if (this.budget.state?.phase !== undefined && this.budget.state.phase !== 'active') {
-      await this.budget.reach(input); throw new BudgetReached(this.budget.state!)
+      await this.budget.reach(requestWithAttachments(input, attachments)); throw new BudgetReached(this.budget.state!)
     }
     activeEngines.add(this)
     let settled!: () => void
     querySettlements.set(this, new Promise<void>((resolve) => { settled = resolve }))
     this.maxIterations = this.configuredMaxIterations ?? Infinity
     this.turnIterations = 0; this.lastFailure = undefined
-    this.partialTurn = { input, text: '', tools: new Map(), ran: false, mutating: false, startedAt: Date.now(), steers: [], wire: [
+    this.partialTurn = { input, attachments, text: '', tools: new Map(), ran: false, mutating: false, startedAt: Date.now(), steers: [], wire: [
       ...(this.store.getState().contextMessages ?? this.store.getState().messages).filter(m => m.role !== 'system').map(contextWire),
       { role: 'user', content: input },
     ] }
@@ -1119,7 +1129,7 @@ export class QueryEngine {
         const wire = completeStoppedWire(partial.wire)
         wire.push({ role: 'user', content: `[${asSentence(marker)} ${INCOMPLETE_TURN}${resume}]` })
         this.store.setState((current) => ({ contextMessages: wire.map(message => storedMessage(message, timestamp)), messages: [...current.messages,
-          { id: randomUUID(), role: 'user', content: input, timestamp: partial.startedAt }, ...steerMessages(partial.steers),
+          userMessage(input, partial.attachments, partial.startedAt), ...steerMessages(partial.steers),
           { id: randomUUID(), role: 'assistant', content, timestamp, metadata: { interrupted: true, reason: note } },
         ] }))
         // The saved status describes the context as stored, which the next turn sends. Measured
@@ -1313,7 +1323,17 @@ export class QueryEngine {
     const ownsTasks = this.persist && !this.outputLedger
     const endedHere = ownsTasks ? takeEndedNotices(state.sessionId) : undefined
     const contextBlock = this.persist ? withEndedTasks(turnContext, { id: state.sessionId, cwd: this.store.getState().cwd }) : turnContext
-    const currentUserMessage: LLMMessage = { role: 'user', content: withTurnContext(endedHere ? withContextLine(contextBlock, endedHere) : contextBlock, input) }
+    const userText = withTurnContext(endedHere ? withContextLine(contextBlock, endedHere) : contextBlock, input)
+    const currentUserMessage: LLMMessage = { role: 'user', content: userText }
+    if (this.turnAttachments.length) {
+      // Images are checked against the ones the conversation already holds, as FileRead checks them.
+      const attached = await attachmentContent(userText, this.turnAttachments, { ...toolContext, vision: withImageBudget(this.client.visionCapabilities?.(this.model), () => history) })
+      currentUserMessage.content = attached.content
+      this.turnAttachments = attached.refs
+      if (this.partialTurn) this.partialTurn.attachments = attached.refs
+      const missed = attached.refs.filter(ref => ref.problem)
+      if (missed.length) this.onRuntime?.({ type: 'system', text: `Not sent to the model: ${missed.map(ref => `${ref.name} (${ref.problem!.replace(/\.$/, '')})`).join('; ')}.` })
+    }
     memoryTurns.set(currentUserMessage, sessionContext.turn_count)
     const messages: LLMMessage[] = [...history, currentUserMessage]
     // Keep an unabridged turn journal separate from context compaction.
@@ -1542,7 +1562,7 @@ export class QueryEngine {
           // A writer reply that is not a handoff is never passed on: G-Code then builds one from the record, and says so.
           const beat = this.heartbeat(() => false)
           const summary = await writeHandoff(messages, oneShot(this.client), this.model, contextLimit, this.abortController.signal, {
-            request: input, changed: (this.store.getState().outputs ?? []).map(output => output.path),
+            request: requestWithAttachments(input, this.turnAttachments), changed: (this.store.getState().outputs ?? []).map(output => output.path),
             onFallback: problem => this.onRuntime?.({ type: 'system', text: `The model's handoff could not be used (${problem}), so G-Code built a basic one from the session record: the request, the files changed and the latest tool results.` }),
           }).catch(error => {
             // The writer's failure, not the main request's: it must never reach the recovery that
@@ -1559,7 +1579,7 @@ export class QueryEngine {
             saveError = error instanceof Error ? error.message : String(error)
             this.onRuntime?.({ type: 'system', text: `${saveError} The handoff is passed to the new session in its first message.` })
           }
-          throw new ContextHandoff(summary, path, input, saveError, this.scaleCalibrated || this.statedLimit() !== undefined ? this.calibration() : undefined, this.handoffStalls(input))
+          throw new ContextHandoff(summary, path, requestWithAttachments(input, this.turnAttachments), saveError, this.scaleCalibrated || this.statedLimit() !== undefined ? this.calibration() : undefined, this.handoffStalls(input), usableAttachments(this.turnAttachments))
         }
         // The target is in the rough estimate's units, scaled by what the check counted for this request.
         const roughInput = systemPromptTokens + conversationTokens(messages) + toolTokens
@@ -1575,7 +1595,7 @@ export class QueryEngine {
         const compaction = await compactTurn(messages, targetTokens, oneShot(this.client), this.model, {
           signal: this.abortController.signal, summarize: !!this.onContextFull, keep: requestMessage, contextLimit,
           beforeRequest: () => queryHooks('preQuery', { query: input }),
-          saveRequest: () => savedRequestPath ??= saveLongRequest(this.store.getState().cwd, state.sessionId, input),
+          saveRequest: () => savedRequestPath ??= saveLongRequest(this.store.getState().cwd, state.sessionId, requestWithAttachments(input, this.turnAttachments)),
         }).finally(() => summaryBeat.stop())
         this.abortController.signal.throwIfAborted()
         if (compaction.kind === 'note') this.onRuntime?.({ type: 'system', contextLost: 'note', text: `${compaction.problem ? `The model's summary could not be used (${compaction.problem}), so the` : 'The'} earlier messages were replaced by a short note without a model summary: the start of each message, and a list of the tool calls. What they said beyond that is no longer in the model's context${this.persist ? '; the saved conversation keeps them' : ''}.` })
@@ -1703,7 +1723,7 @@ export class QueryEngine {
           toolUseBlocks = toolUseBlocks.filter(call => !cut.includes(call))
         }
 
-        if (this.budget.state && this.budget.state.phase !== 'active') { await this.budget.reach(input); throw new BudgetReached(this.budget.state!) }
+        if (this.budget.state && this.budget.state.phase !== 'active') { await this.budget.reach(requestWithAttachments(input, this.turnAttachments)); throw new BudgetReached(this.budget.state!) }
         if (this.aborted || toolUseBlocks.length || truncated.length || !cutOffStop()) break
         // The user has already seen this reply's text. Regenerating it would show a second reply
         // after the first, and save only one of them: it stays as it was shown, marked as cut off.
@@ -2093,7 +2113,7 @@ export class QueryEngine {
       contextMessages: managedLocal ? [...activePrefix, storedMessage(savedRequest, this.partialTurn?.startedAt ?? completedAt), { id: randomUUID(), role: 'assistant', content: savedText, timestamp: completedAt, metadata: { turn: sessionContext.turn_count } }] : messages.map(message => storedMessage(message, completedAt)),
       messages: [
         ...current.messages,
-        { id: randomUUID(), role: 'user', content: input, timestamp: this.partialTurn?.startedAt ?? completedAt }, ...steerMessages(steers),
+        userMessage(input, this.turnAttachments, this.partialTurn?.startedAt ?? completedAt), ...steerMessages(steers),
         { id: randomUUID(), role: 'assistant', content: savedText, timestamp: completedAt, ...(cutOffNote ? { metadata: { cutOff: true, reason: cutOffNote.slice(1, -1) } } : {}) },
       ],
     }))
@@ -2547,6 +2567,11 @@ function contextWire(message: StoredMessage): LLMMessage {
 }
 
 /** A wire message as contextMessages store it: the wire, with a short text preview as its content (see wirePreview). */
+/** The user's message as the saved conversation shows it: their words, and the files attached to it. */
+function userMessage(input: string, attachments: ReadonlyArray<AttachmentRef>, timestamp: number): StoredMessage {
+  return { id: randomUUID(), role: 'user', content: input, timestamp, ...(attachments.length ? { metadata: { attachments: attachments.map(ref => ({ ...ref })) } } : {}) }
+}
+
 /** Messages the user sent while a turn ran, as the saved conversation shows them (after the turn's request). */
 function steerMessages(steers: ReadonlyArray<{ text: string; at: number }>): StoredMessage[] {
   return steers.map(steer => ({ id: randomUUID(), role: 'user' as const, content: steer.text, timestamp: steer.at, metadata: { steer: true } }))

@@ -17,7 +17,7 @@ import { resolveSlashCommand, turnInvocations, userCommandHelp } from './slashCo
 
 import { randomUUID } from 'node:crypto'
 import { createInterface } from 'node:readline'
-import { parseContextChoice, parseInputLine, parseSteerFrame, parseTaskControl, parseWorkflowControl } from './input.js'
+import { parseContextChoice, parseInputMessage, parseSteerFrame, parseTaskControl, parseWorkflowControl } from './input.js'
 import { ContextHandoff } from '../session/handoff.js'
 import { backgroundShells } from '../tools/backgroundShells.js'
 import { guardOutputStreams, isClosedOutputError, writeQuietly } from './headless.js'
@@ -365,11 +365,12 @@ export async function startREPL(options: REPLOptions): Promise<void> {
   // Turns queued or running: a typed line steers only a turn with nothing queued behind it, so it
   // never overtakes lines already queued as turns.
   let pendingTurns = 0
-  const enqueueTurn = (input: string, source?: 'workflow' | 'budget' | 'network', workflowNotice?: string) => {
+  // `attachments`: files the desktop attached to the message (absolute paths; see src/shared/attachments.ts).
+  const enqueueTurn = (input: string, source?: 'workflow' | 'budget' | 'network', workflowNotice?: string, attachments: string[] = []) => {
     pendingTurns++
     turnQueue = turnQueue.then(async () => {
       if (quitting) return
-      if (!input) {
+      if (!input && !attachments.length) {
         prompt()
         return
       }
@@ -437,7 +438,7 @@ export async function startREPL(options: REPLOptions): Promise<void> {
           if (source) emitDesktopEvent({ type: 'turn-started', source })
           if (!source) currentGuard()?.nextUserMessage()
           const invocations = source ? [] : await turnInvocations(input, target)
-          const result = await engine.submitQuery(input, { invocations })
+          const result = await engine.submitQuery(input, { invocations, attachments })
           terminalText.flush()
           if (process.stdout.isTTY) process.stdout.write('\n')
           saveSession(store.getState())
@@ -466,7 +467,7 @@ export async function startREPL(options: REPLOptions): Promise<void> {
           }
           if (err instanceof ContextHandoff) {
             saveSession(store.getState())
-            emitDesktopEvent({ type: 'handoff', summary: err.summary, path: err.path, request: (err as { request?: string }).request ?? '', sessionId: store.getState().sessionId, ...(err.calibration ? { calibration: err.calibration } : {}), ...(err.stalls ? { stalls: err.stalls } : {}) })
+            emitDesktopEvent({ type: 'handoff', summary: err.summary, path: err.path, request: (err as { request?: string }).request ?? '', sessionId: store.getState().sessionId, ...(err.calibration ? { calibration: err.calibration } : {}), ...(err.stalls ? { stalls: err.stalls } : {}), ...(err.attachments.length ? { attachments: err.attachments } : {}) })
             emitDesktopEvent({ type: 'turn-complete' })
             process.stderr.write(err.path ? `[session] Handoff saved to ${err.path}\n` : `[session] ${err.saveError ?? 'The handoff was not saved.'}\n`)
             prompt()
@@ -500,6 +501,7 @@ export async function startREPL(options: REPLOptions): Promise<void> {
   })
   rl.on('line', (line) => {
     let input: string
+    let attachments: string[] = []
     try {
       const choice = parseContextChoice(line)
       if (choice) {
@@ -539,9 +541,18 @@ export async function startREPL(options: REPLOptions): Promise<void> {
         }
         return
       }
-      input = parseInputLine(line)
+      const message = parseInputMessage(line)
+      input = message.text; attachments = message.attachments
     } catch (error) {
       emitDesktopEvent({ type: 'error', message: String(error) })
+      return
+    }
+    // A command (workflow controls and /exit included) runs no model turn, so files sent with one
+    // would go nowhere: say so instead of dropping them. A skill or prompt run by name takes them.
+    if (attachments.length && isCommandText(input) && !resolveSlashCommand(input)) {
+      emitDesktopEvent({ type: 'error', message: `${input.split(/\s+/)[0]} does not take attachments. Send the files with an ordinary message.` })
+      emitDesktopEvent({ type: 'turn-complete' })
+      prompt()
       return
     }
     if (['/exit', '/quit'].includes(input.toLowerCase())) {
@@ -569,25 +580,26 @@ export async function startREPL(options: REPLOptions): Promise<void> {
     if (workflowSettings(store.getState().cwd).enabled && (input === '/workflows' || input.startsWith('/workflows '))) { enqueueTurn(input); return }
     if (process.env.GCODE_DESKTOP === '1') {
       if (approvals.size) process.stderr.write('[approval] Input queued for the next turn. Desktop approval requires an approval frame carrying requestId.\n')
-      enqueueTurn(input)
+      enqueueTurn(input, undefined, undefined, attachments)
       return
     }
-    if (approvals.answerText(input)) return
-    if (approvals.workflowPending && /^(y|yes|n|no)$/i.test(input)) {
+    // A message with files is a message, never an approval answer.
+    if (!attachments.length && approvals.answerText(input)) return
+    if (!attachments.length && approvals.workflowPending && /^(y|yes|n|no)$/i.test(input)) {
       process.stderr.write('[approval] Include requestId: y <requestId> / n <requestId>. Reply was not queued.\n')
       return
     }
     // In the terminal, a line typed while a turn runs goes into that turn at its next safe point; one
     // the turn ends before taking runs as the next turn. While an approval waits, a line that is not
     // its answer keeps being queued with the hint below. Piped input keeps queueing turns.
-    if (process.stdin.isTTY && !approvals.size && pendingTurns <= 1 && !isCommandText(input) && !resolveSlashCommand(input) && engine?.steer(randomUUID(), input, runReturnedSteer)) {
+    if (process.stdin.isTTY && !attachments.length && !approvals.size && pendingTurns <= 1 && !isCommandText(input) && !resolveSlashCommand(input) && engine?.steer(randomUUID(), input, runReturnedSteer)) {
       process.stderr.write('[steer] Sent to the running turn; the model reads it after its current step.\n')
       return
     }
     if (approvals.workflowPending) process.stderr.write(process.stdin.isTTY
       ? '[approval] Input queued for the next turn. Workflow approval requires y <requestId> / n <requestId>.\n'
       : '[approval] Input queued for the next turn. Workflow approval requires y/n followed by requestId, or an approval frame.\n')
-    enqueueTurn(input)
+    enqueueTurn(input, undefined, undefined, attachments)
   })
 
   const closeForSignal = (signal: NodeJS.Signals) => {

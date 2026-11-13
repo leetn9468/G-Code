@@ -129,12 +129,21 @@ fn session_summary(record: Value) -> Value {
     let first = messages.and_then(|list| list.iter().find(|message| message.get("role").and_then(Value::as_str) == Some("user") && message.get("content").is_some_and(Value::is_string)));
     let shown: Vec<Value> = first.iter().map(|message| json!({
         "id": message.get("id").cloned().unwrap_or(Value::Null), "role": "user",
-        "content": cut(message.get("content").and_then(Value::as_str).unwrap_or(""), SUMMARY_FIRST_MESSAGE_BYTES),
+        "content": cut(&title_text(message), SUMMARY_FIRST_MESSAGE_BYTES),
         "timestamp": message.get("timestamp").cloned().unwrap_or(Value::Null),
     })).collect();
     let mut summary = json!({ "sessionId": record.get("sessionId"), "cwd": record.get("cwd"), "savedAt": record.get("savedAt"), "messages": shown, "messageCount": count });
     if let Some(provider) = record.get("provider").filter(|provider| provider.is_string()) { summary["provider"] = provider.clone(); }
     summary
+}
+
+/// A user message's words; a message of attached files only is named by its files.
+fn title_text(message: &Value) -> String {
+    let text = message.get("content").and_then(Value::as_str).unwrap_or("");
+    if !text.trim().is_empty() { return text.to_string(); }
+    message.pointer("/metadata/attachments").and_then(Value::as_array)
+        .map(|files| files.iter().filter_map(|file| file.get("name").and_then(Value::as_str)).collect::<Vec<_>>().join(", "))
+        .unwrap_or_default()
 }
 
 /// What chat search reads: the text of every chat, and nothing else of them. Only while search is open.

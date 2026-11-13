@@ -45,10 +45,13 @@ export const CONTINUED_SESSION = 'Continued session'
  * from a handoff, the user's request it continues (quoted in the continuation),
  * or CONTINUED_SESSION when the request was not recorded.
  */
-export function chatTitle(session: { messages: ReadonlyArray<{ role: string; content: unknown }> }): string {
-  const first = session.messages.find((message) => message.role === 'user')?.content
+export function chatTitle(session: { messages: ReadonlyArray<{ role: string; content: unknown; metadata?: { attachments?: ReadonlyArray<{ name: string }> } }> }): string {
+  const message = session.messages.find((entry) => entry.role === 'user')
+  const first = message?.content
   if (first === undefined) return 'Untitled session'
   const text = String(first)
+  // A message of attached files only is named by its files.
+  if (!text.trim() && message?.metadata?.attachments?.length) return message.metadata.attachments.map(file => file.name).join(', ')
   if (!isHandoffContinuation(text)) return text
   return continuationRequest(text)?.trim() || CONTINUED_SESSION
 }

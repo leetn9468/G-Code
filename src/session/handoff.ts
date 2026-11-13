@@ -18,7 +18,8 @@ import { replyEnd, replyEndWords } from '../llm/replyEnd.js'
  * `stalls`: sessions in a row, this one included, that handed off without progress (0 when this one made some).
  */
 export class ContextHandoff extends Error {
-  constructor(readonly summary: string, readonly path: string, readonly request: string, readonly saveError?: string, readonly calibration?: TokenCalibration, readonly stalls = 0) {
+  /** `attachments`: files attached to the request that reached the model; the continuation sends them again. */
+  constructor(readonly summary: string, readonly path: string, readonly request: string, readonly saveError?: string, readonly calibration?: TokenCalibration, readonly stalls = 0, readonly attachments: ReadonlyArray<import('../shared/attachments.js').AttachmentRef> = []) {
     super('Context window full: the work continues in a new session.')
     this.name = 'ContextHandoff'
   }

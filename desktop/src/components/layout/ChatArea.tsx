@@ -45,13 +45,14 @@ interface Props {
   onProviderClick?: () => void
   sendDisabledReason?: string
   history: string[]
-  onSend: (text: string) => void
+  /** `attachments`: files attached in the composer (absent for a typed message without any, and for Continue). */
+  onSend: (text: string, attachments?: import('../../../../src/shared/attachments').AttachmentRef[]) => void
   /** Starts a new chat, for an error that offers one. */
   onNewChat?: () => void
   onResumeSession?: (sessionId: string) => void
   onAbort: () => void
   /** Text handed back to the composer. */
-  draft?: { text: string }
+  draft?: { text: string; attachments?: import('../../../../src/shared/attachments').AttachmentRef[] }
   /** Tool approval tray, docked to the composer while a request is pending. */
   approval?: ReactNode
   /** A saved chat is opening: keep the conversation on screen while the
@@ -285,8 +286,8 @@ export function ChatArea({ sessionControls, onOutputs, outputCount, sideView = n
   // Name the chat by its first prompt, like the sidebar row does.
   const chatTitle = messages.some((message) => message.role === 'user') ? sessionTitle({ messages }).split('\n')[0].trim() : undefined
 
-  const send = (text: string) => {
-    onSend(text)
+  const send = (text: string, attachments?: import('../../../../src/shared/attachments').AttachmentRef[]) => {
+    onSend(text, attachments)
     // A bare scrollToBottom() springs even under reduced motion; pass the mode.
     void scrollToBottom(reduce ? 'instant' : 'smooth')
   }

@@ -68,6 +68,68 @@
 .gc-composer-spacer { flex: 1 1 0; min-width: 8px; }
 .gc-toolbar-divider { width: 1px; height: 16px; margin: 0 5px; flex-shrink: 0; background: var(--hairline-strong); border-radius: 1px; }
 
+/* ---- Attachments ------------------------------------------------------- */
+/* [+] in the toolbar, files dropped on the window, pasted screenshots. The chips
+   sit above the textarea; the same chip shows in a sent message (chat.css). */
+.gc-attach-button { width: 30px; padding: 0; justify-content: center; }
+.gc-attach-button > svg { color: var(--text-secondary); }
+.gc-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.gc-composer > .gc-attachments { padding: 0 2px; }
+.gc-attachment {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  max-width: 260px;
+  height: 34px;
+  padding: 0 4px 0 5px;
+  border-radius: var(--radius-lg);
+  background: var(--fill-hover);
+  box-shadow: var(--ring-hairline);
+  color: var(--text-secondary);
+  font-size: var(--fs-meta);
+  line-height: 18px;
+  cursor: default;
+}
+.gc-attachment-thumb,
+.gc-attachment-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+}
+.gc-attachment-thumb { object-fit: cover; outline: 0.5px solid var(--hairline); outline-offset: -0.5px; }
+.gc-attachment-icon { display: inline-flex; align-items: center; justify-content: center; color: var(--text-muted); }
+.gc-attachment-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); font-weight: 500; }
+.gc-attachment-size { flex-shrink: 0; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.gc-attachment-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .gc-attachment-remove:hover { background: var(--fill-pressed); color: var(--text-primary); transition-duration: 0ms; }
+}
+.gc-attachment-remove:focus-visible { outline-offset: 0; }
+/* Files dragged over the window: the card that takes them shows its focus ring. */
+.gc-composer.is-dropping {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent), 0 0 0 4px var(--accent-subtle), var(--elev-floating);
+}
+
 /* Pills: model, project, effort, permissions, context. Quiet until hovered. */
 .gc-composer-pill,
 .gc-control-pill {

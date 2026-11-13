@@ -49,6 +49,7 @@ import { TasksPanel } from './components/side/TasksPanel'
 import { ContextFullDialog } from './components/session/ContextFullDialog'
 import { KeepAwakeControl } from './components/layout/KeepAwakeControl'
 import { setKeepAwake } from './lib/tauri'
+import type { AttachmentRef } from '../../src/shared/attachments'
 
 const SESSION_SHORT_ID = 'boot-0000'
 
@@ -275,13 +276,14 @@ export function App() {
   useReloadOnFocus(reloadSettings)
   useEffect(() => { if (settingsOpen) void reloadSettings() }, [settingsOpen, reloadSettings])
   // While a turn streams the composer steers it instead of starting another.
-  const sendTurn = (text: string) => { if (browsing) return; if (chat.streaming) { void chat.steer(text); return } sessionStatus.beginTurn(); void chat.send(text) }
+  // A message with attachments never steers a running turn: the composer holds it until the turn ends.
+  const sendTurn = (text: string, attachments?: AttachmentRef[]) => { if (browsing) return; if (chat.streaming) { if (!attachments?.length) void chat.steer(text); return } sessionStatus.beginTurn(); void chat.send(text, attachments?.length ? { attachments } : {}) }
   // A new chat's file is written only as its first turn gets going, so until
   // the saved list has it the sidebar shows a provisional row (view only) that
   // can carry the running / needs-you light. The saved record replaces it.
   const provisional: SavedSession | null = chat.sessionId !== SESSION_SHORT_ID && workspace.cwd && chat.messages.some((message) => message.role === 'user')
     && !savedChats.sessions.some((session) => session.sessionId === chat.sessionId && session.cwd === workspace.cwd)
-    ? { sessionId: chat.sessionId, cwd: workspace.cwd, savedAt: Date.now(), provider: currentProvider, messages: chat.messages.filter((message) => message.role === 'user' || message.role === 'assistant').map(({ id, role, content, timestamp }) => ({ id, role: role as 'user' | 'assistant', content, timestamp })) }
+    ? { sessionId: chat.sessionId, cwd: workspace.cwd, savedAt: Date.now(), provider: currentProvider, messages: chat.messages.filter((message) => message.role === 'user' || message.role === 'assistant').map(({ id, role, content, timestamp, metadata }) => ({ id, role: role as 'user' | 'assistant', content, timestamp, ...(metadata?.attachments ? { metadata: { attachments: metadata.attachments } } : {}) })) }
     : null
   const sidebarSessions = provisional ? [provisional, ...savedChats.sessions] : savedChats.sessions
   const abortTurn = () => { sessionStatus.interrupt(); void chat.abort() }

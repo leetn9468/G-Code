@@ -5,7 +5,7 @@
 import { memo, useEffect, useId, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { collapse } from '@/lib/motion'
-import { AlertCircle, Check, ChevronRight, Copy, History } from 'lucide-react'
+import { AlertCircle, Check, ChevronRight, Copy, FileText, History, Image as ImageIcon } from 'lucide-react'
 import { GLogo } from '@/icons'
 import { copyToClipboard } from '@/lib/tauri'
 import { swap } from '@/lib/motion'
@@ -14,6 +14,7 @@ import { MarkdownContent } from './MarkdownContent'
 import type { ChatMessage } from './types'
 import { GhostButton } from '../shell/Button'
 import { CONTINUE_TURN, isIterationLimit, parseContinuation, type ContinuationParts } from '../../../../src/shared/execution'
+import { attachmentSize, type AttachmentRef } from '../../../../src/shared/attachments'
 
 const COPIED_MS = 1600
 
@@ -108,7 +109,8 @@ export const MessageBubble = memo(function MessageBubble({ message, pinActions =
     return (
       <article className="gc-message gc-message-user" data-pinned={pinActions ? '' : undefined} data-pending={message.pending ? '' : undefined}>
         <div className="gc-message-card">
-          <div className="gc-message-text">{message.content}</div>
+          {!!message.metadata?.attachments?.length && <MessageAttachments attachments={message.metadata.attachments} />}
+          {message.content && <div className="gc-message-text">{message.content}</div>}
           {message.streaming && <span className="gc-stream-caret" aria-label="Streaming" />}
         </div>
         <MessageMeta message={message} copyable={!message.streaming} />
@@ -127,6 +129,21 @@ export const MessageBubble = memo(function MessageBubble({ message, pinActions =
     </article>
   )
 })
+
+/** The files sent with a user message: name and size; one the model did not get says why. */
+function MessageAttachments({ attachments }: { attachments: AttachmentRef[] }) {
+  return (
+    <ul className="gc-attachments gc-message-attachments" aria-label="Attachments">
+      {attachments.map((attachment, index) => (
+        <li key={`${attachment.path}:${index}`} className="gc-attachment" data-problem={attachment.problem ? '' : undefined} title={attachment.problem ? `${attachment.path}\nNot sent to the model: ${attachment.problem}` : attachment.path}>
+          <span className="gc-attachment-icon" aria-hidden="true">{attachment.kind === 'image' ? <ImageIcon size={15} strokeWidth={1.75} /> : <FileText size={15} strokeWidth={1.75} />}</span>
+          <span className="gc-attachment-name">{attachment.name}</span>
+          {attachment.problem ? <span className="gc-attachment-size">Not sent</span> : attachment.bytes !== undefined && <span className="gc-attachment-size">{attachmentSize(attachment.bytes)}</span>}
+        </li>
+      ))}
+    </ul>
+  )
+}
 
 /** The first message of a session that took over after a handoff: the request it continues, with the handoff behind a disclosure. */
 function ContinuationCard({ message, parts, pinActions }: { message: ChatMessage; parts: ContinuationParts; pinActions: boolean }) {

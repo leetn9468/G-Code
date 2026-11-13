@@ -6,7 +6,8 @@ export function savedConversation(saved: SavedSession, sessionId: string, cwd: s
   if (saved.sessionId !== sessionId || saved.cwd !== cwd) throw new Error('Saved session identity does not match this project.')
   if (saved.provider && saved.provider !== provider) throw new Error(`This session uses ${saved.provider}. Select that provider before resuming it.`)
   const messages: ChatMessage[] = saved.messages.map((message) => ({ ...message, content: String(message.content), timestamp: message.timestamp ?? Date.now(), streaming: false }))
-  return { messages, history: messages.filter((message) => message.role === 'user').map((message) => message.content) }
+  // A message of attached files only has no words to recall with the arrow keys.
+  return { messages, history: messages.filter((message) => message.role === 'user' && message.content).map((message) => message.content) }
 }
 
 /** A saved chat's tool cards: a call that never settled cannot still be running. */

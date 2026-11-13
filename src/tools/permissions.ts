@@ -6,6 +6,7 @@ import { matchesRules, allowedWebRuleHost, hasUnresolvedCommand } from './permis
 import { blockedCommand } from './impl/BashTool.js'
 import { lspRunsProgram } from './impl/LSPTool.js'
 import { isProjectPath, isPersonalOutput, autoInspectionCommand, pathTarget, webTarget, isWebHostApproved, type PathTarget, type WebTarget } from '../session/scopedPermission.js'
+import { isAttachedFile } from '../session/attachments.js'
 import { expandPath } from '../utils/path.js'
 /**
  * @file permissions.ts
@@ -167,7 +168,8 @@ export function readScope(toolName: string, input: unknown, cwd: string): Policy
   if (path === undefined) return undefined
   const target = pathTarget(path, cwd)
   if (target.secret) return { decision: 'deny', reason: secretRefusal(target.resolved) }
-  if (target.inside || toolName === 'FileRead' && isPersonalOutput(target.resolved, cwd)) return undefined
+  // A file the user attached to a message is read as a project file is (the user chose it); only FileRead, only that file.
+  if (target.inside || toolName === 'FileRead' && (isPersonalOutput(target.resolved, cwd) || isAttachedFile(target.resolved))) return undefined
   const [action, noun] = READ_ACTIONS[toolName]!
   return { decision: 'ask', scoped: true, reason: `${action} outside the project: ${target.resolved}${linkNote(target)}. ${noun} anything outside ${target.root} needs your approval.` }
 }

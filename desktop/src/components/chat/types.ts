@@ -8,8 +8,8 @@ export interface ChatMessage {
   streaming?: boolean
   /** A user message sent while a turn ran that the CLI has not added to the conversation yet. */
   pending?: boolean
-  /** `action`: an error that offers a next step ('new-chat': the session is open in another G-Code process). `steer`: saved by the CLI for text sent while its turn ran. */
-  metadata?: { tokenCount?: number; interrupted?: boolean; reason?: string; action?: 'new-chat' | 'resume-session'; sessionId?: string; steer?: boolean }
+  /** `action`: an error that offers a next step ('new-chat': the session is open in another G-Code process). `steer`: saved by the CLI for text sent while its turn ran. `attachments`: files sent with a user message. */
+  metadata?: { tokenCount?: number; interrupted?: boolean; reason?: string; action?: 'new-chat' | 'resume-session'; sessionId?: string; steer?: boolean; attachments?: import('../../../../src/shared/attachments').AttachmentRef[] }
 }
 
 export type ToolState = import('../../../../src/shared/runtimeEvents').ToolPhase

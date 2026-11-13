@@ -130,8 +130,36 @@ export async function writeDshSettings(config: DshSettings): Promise<void> { ret
 export async function dshStatus(cwd: string): Promise<DshProbe> { return invoke('dsh_status', { cwd }) }
 export async function dshInstall(cwd?: string): Promise<string> { return invoke('dsh_install', { cwd: cwd ?? null }) }
 
-export async function sendMessage(text: string): Promise<void> {
-  return invoke('send_message', { text: inputFrame({ type: 'message', text }) })
+/** `attachments`: absolute paths of files attached to the message (see src/shared/attachments.ts). */
+export async function sendMessage(text: string, attachments: ReadonlyArray<string> = []): Promise<void> {
+  return invoke('send_message', { text: inputFrame({ type: 'message', text, ...(attachments.length ? { attachments } : {}) }) })
+}
+
+/** A picked, dropped or pasted file as the composer learns it (desktop/src-tauri/src/attachments.rs). */
+export interface AttachmentInfo {
+  path: string
+  name: string
+  kind: 'image' | 'file'
+  bytes: number
+  mediaType?: string
+  /** The whole image as base64 (images up to 8 MB), for a thumbnail. */
+  preview?: string
+  /** Why it cannot be attached. */
+  problem?: string
+}
+
+export async function inspectAttachments(paths: string[]): Promise<AttachmentInfo[]> {
+  return invoke<AttachmentInfo[]>('inspect_attachments', { paths })
+}
+
+/** Saves pasted image bytes (base64) as a file of the user's own and returns it as an attachment. */
+export async function savePastedImage(data: string): Promise<AttachmentInfo> {
+  return invoke<AttachmentInfo>('save_pasted_image', { data })
+}
+
+/** Deletes a pasted image removed from the composer before it was sent (only files savePastedImage made). */
+export async function discardPastedImage(path: string): Promise<void> {
+  return invoke('discard_pasted_image', { path })
 }
 
 /** Text for the running turn: the CLI adds it at the next safe point, or returns it (a 'steer' event says which). */

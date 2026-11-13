@@ -1,10 +1,17 @@
+import { parseAttachmentPaths } from '../shared/attachments.js'
+
 /** Desktop messages travel as one JSON line, preserving multiline user input. */
 export function parseInputLine(line: string): string {
-  if (!line.startsWith('\x1e')) return line.trim()
+  return parseInputMessage(line).text
+}
+
+/** A message line with the files attached to it (desktop frames only; a typed line has none). */
+export function parseInputMessage(line: string): { text: string; attachments: string[] } {
+  if (!line.startsWith('\x1e')) return { text: line.trim(), attachments: [] }
   if (!line.endsWith('\x1e')) throw new Error('Incomplete desktop input frame')
-  const frame = JSON.parse(line.slice(1, -1)) as { type?: unknown; text?: unknown }
+  const frame = JSON.parse(line.slice(1, -1)) as { type?: unknown; text?: unknown; attachments?: unknown }
   if (frame.type !== 'message' || typeof frame.text !== 'string') throw new Error('Invalid desktop input frame')
-  return frame.text.trim()
+  return { text: frame.text.trim(), attachments: parseAttachmentPaths(frame.attachments) }
 }
 
 /** Workflow controls bypass the turn queue so they can stop a busy engine. */
