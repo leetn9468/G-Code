@@ -11,6 +11,23 @@
 </p>
 
 <p align="center">
+  <a href="https://o-research.tech">Website</a> ·
+  <a href="https://o-research.tech/results-mac">Test results</a> ·
+  <a href="#installation">Install</a> ·
+  <a href="#usage">Usage</a> ·
+  <a href="LICENSE">License</a> ·
+  <a href="COMMERCIAL.md">Commercial use</a>
+</p>
+
+<p align="center">
+  <img alt="macOS 15 or later" src="https://img.shields.io/badge/macOS-15%2B-1A1A1A?logo=apple&logoColor=white">
+  <img alt="Apple silicon" src="https://img.shields.io/badge/Apple%20silicon-arm64-1A1A1A">
+  <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-00638E?logo=tauri&logoColor=white">
+  <img alt="TypeScript on Bun" src="https://img.shields.io/badge/TypeScript-Bun-00638E?logo=typescript&logoColor=white">
+  <a href="LICENSE"><img alt="G-Code Community License 1.0" src="https://img.shields.io/badge/license-G--Code%20Community%201.0-8CB9CC"></a>
+</p>
+
+<p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/hero-dark.png">
     <img src="assets/screenshots/hero-light.png" alt="The G-Code desktop app: the agent searches, reads and edits files, runs the tests, then explains the fix">
