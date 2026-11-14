@@ -22,9 +22,9 @@ export function getVersion(): string {
     const __dirname = dirname(fileURLToPath(import.meta.url))
     const pkgPath = join(__dirname, '..', '..', 'package.json')
     const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
-    cachedVersion = pkg.version ?? '0.1.0'
+    cachedVersion = pkg.version ?? '0.1.1'
   } catch {
-    cachedVersion = '0.1.0'
+    cachedVersion = '0.1.1'
   }
 
   return cachedVersion!

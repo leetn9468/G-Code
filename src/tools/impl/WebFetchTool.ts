@@ -71,7 +71,7 @@ export const WebFetchTool: Tool<WebFetchInput, WebFetchOutput> = {
           response = await guardedFetch(url, {
             signal: hop.connection,
             headers: {
-              'User-Agent': 'G-Code/0.1.0 (AI Coding Agent)',
+              'User-Agent': 'G-Code/0.1.1 (AI Coding Agent)',
               'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.7',
             },
             redirect: 'manual',

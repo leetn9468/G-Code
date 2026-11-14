@@ -290,7 +290,7 @@ async function challengedMetadata(server: MCPServerConfig, signal?: AbortSignal)
   const wait = AbortSignal.timeout(METADATA_WAIT_MS)
   const { connection: both, release } = connectionSignal(wait, ...(signal ? [signal] : []))
   try {
-    const response = await guardedFetch(server.url!, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'g-code', version: '0.1.0' } } }), redirect: 'manual', signal: both })
+    const response = await guardedFetch(server.url!, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'g-code', version: '0.1.1' } } }), redirect: 'manual', signal: both })
     void response.body?.cancel().catch(() => {})
     if (response.status !== 401) return
     const named = /resource_metadata="([^"]+)"/.exec(response.headers.get('www-authenticate') ?? '')?.[1]

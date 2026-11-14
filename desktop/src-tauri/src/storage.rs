@@ -545,7 +545,7 @@ fn probe_mcp(server: &Value) -> Result<Vec<Value>, String> {
         let mut send = |value: Value| -> Result<(), String> {
             writeln!(stdin, "{}", value).and_then(|_| stdin.flush()).map_err(|e| e.to_string())
         };
-        send(json!({"jsonrpc":"2.0", "id":1, "method":"initialize", "params":{"protocolVersion":"2024-11-05", "capabilities":{}, "clientInfo":{"name":"g-code-desktop", "version":"0.1.0"}}}))?;
+        send(json!({"jsonrpc":"2.0", "id":1, "method":"initialize", "params":{"protocolVersion":"2024-11-05", "capabilities":{}, "clientInfo":{"name":"g-code-desktop", "version":"0.1.1"}}}))?;
         let initialized = receive_rpc(&rx, 1, deadline)?;
         if initialized.get("protocolVersion").and_then(Value::as_str).is_none() || !initialized.get("capabilities").is_some_and(Value::is_object) {
             return Err("Invalid MCP initialize response".to_string());

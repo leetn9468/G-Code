@@ -1,6 +1,6 @@
 [package]
 name = "g-code-desktop"
-version = "0.1.0"
+version = "0.1.1"
 description = "G-Code Desktop — AI Coding Agent GUI"
 authors = ["O-Research"]
 license-file = "../../LICENSE"

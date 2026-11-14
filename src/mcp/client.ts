@@ -25,7 +25,7 @@ interface PendingRequest {
 }
 interface MCPClientOptions { cwd?: string; requestTimeoutMs?: number; dsh?: { bootstrap: BridgeInput; stderr?: (text: string) => void } }
 const SUPPORTED_VERSIONS = new Set(['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'])
-const INITIALIZE = { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'g-code', version: '0.1.0' } }
+const INITIALIZE = { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'g-code', version: '0.1.1' } }
 /** One message of a prompt (prompts/get): text, or another content block shown as JSON. */
 export interface MCPPromptMessage { role: string; content: { type: string; text?: string; [key: string]: unknown } }
 /** Connecting and listing, and any other request without a limit of its own. */

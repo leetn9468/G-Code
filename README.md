@@ -77,7 +77,7 @@ G-Code is tested on two Macs:
 
 ### Download the app
 
-Get **G-Code_0.1.0_aarch64.dmg** from the [latest release](https://github.com/leetn9468/G-Code/releases/latest) (macOS 15 or later, Apple silicon). Open it and drag G-Code to Applications.
+Get **G-Code_0.1.1_aarch64.dmg** from the [latest release](https://github.com/leetn9468/G-Code/releases/latest) (macOS 15 or later, Apple silicon). Open it and drag G-Code to Applications.
 
 The app is signed ad hoc and not notarized, so macOS 15 blocks the first launch. Open it once, then choose **System Settings → Privacy & Security → Open Anyway**. The release notes have the details.
 

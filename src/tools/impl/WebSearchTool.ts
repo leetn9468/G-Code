@@ -37,7 +37,7 @@ export const WebSearchTool: Tool<SearchInput, SearchOutput> = {
       const encoded = encodeURIComponent(input.query)
       const response = await guardedFetch(`https://html.duckduckgo.com/html/?q=${encoded}`, {
         headers: {
-          'User-Agent': 'G-Code/0.1.0 (AI Coding Agent)',
+          'User-Agent': 'G-Code/0.1.1 (AI Coding Agent)',
           'Accept': 'text/html',
         },
         signal: AbortSignal.timeout(15_000),
