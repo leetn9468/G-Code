@@ -344,4 +344,4 @@ G-Code's source code is public, under the [G-Code Community License 1.0](LICENSE
 
 Contributions are welcome under the terms in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-Copyright 2026 Shadow Foundry. Third-party parts keep their own licenses: `src/security/vendor/` is adapted from Apache-2.0 code (see its `LICENSE` and `NOTICE`), and the bundled runtimes' licenses are listed in `desktop/licenses/`.
+Copyright 2026 O-Research. Third-party parts keep their own licenses: `src/security/vendor/` is adapted from Apache-2.0 code (see its `LICENSE` and `NOTICE`), and the bundled runtimes' licenses are listed in `desktop/licenses/`.

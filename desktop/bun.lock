@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "@shadow-foundry/g-code-desktop",
+      "name": "@o-research/g-code-desktop",
       "dependencies": {
         "@number-flow/react": "0.6.2",
         "@radix-ui/react-dropdown-menu": "2.1.24",

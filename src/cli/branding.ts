@@ -1,6 +1,6 @@
 /**
  * @file branding.ts
- * @brief Shadow Foundry branding and version display
+ * @brief O-Research branding and version display
  */
 
 import { readFileSync } from 'node:fs'
@@ -40,7 +40,7 @@ export function printBanner(): void {
     '',
     '  G-Code',
     `  AI Coding Agent v${version}`,
-    '  Shadow Foundry',
+    '  O-Research',
     '',
   ]
   process.stderr.write(lines.join('\n') + '\n')

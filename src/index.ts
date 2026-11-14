@@ -2,7 +2,7 @@
  * @file index.ts
  * @brief G-Code barrel export
  *
- * Public API surface for @shadow-foundry/g-code.
+ * Public API surface for @o-research/g-code.
  * Consumers can import types and utilities from this module.
  */
 

@@ -2,7 +2,7 @@
 name = "g-code-desktop"
 version = "0.1.0"
 description = "G-Code Desktop — AI Coding Agent GUI"
-authors = ["Shadow Foundry"]
+authors = ["O-Research"]
 license-file = "../../LICENSE"
 edition = "2021"
 rust-version = "1.77.2"

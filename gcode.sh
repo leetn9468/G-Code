@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # G-Code POSIX Launcher
-# Shadow Foundry
+# O-Research
 set -eu
 
 GCODE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

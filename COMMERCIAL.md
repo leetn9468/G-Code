@@ -5,7 +5,7 @@ Companies, government bodies and other organizations need one seat for each pers
 ## Price
 
 - **US$39.99 per seat, paid once.** No subscription.
-- A seat never expires and covers every version of G-Code that Shadow Foundry publishes, including later ones.
+- A seat never expires and covers every version of G-Code that O-Research publishes, including later ones.
 - You get updates by pulling them from this GitHub repository. A seat includes no update service, support or warranty.
 - A later price change applies only to new purchases. Seats already bought stay as they are.
 

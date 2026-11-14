@@ -20,7 +20,7 @@ async function build(): Promise<void> {
 
   console.log('')
   console.log('  G-Code Build')
-  console.log('  Shadow Foundry')
+  console.log('  O-Research')
   console.log('  ─────────────────────────────')
 
   // Clean

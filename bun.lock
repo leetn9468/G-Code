@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "@shadow-foundry/g-code",
+      "name": "@o-research/g-code",
       "dependencies": {
         "ajv": "^8.20.0",
         "commander": "^13.1.0",

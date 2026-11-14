@@ -19,7 +19,7 @@ import { formatMemoryForPrompt } from '../memory/projectMemory.js'
 import { formatSessionMemoryForPrompt } from '../memory/sessionMemory.js'
 import { formatTeamMemoryForPrompt, type TeamMemoryTopic } from '../memory/teamMemory.js'
 
-export const BASE_SYSTEM_PROMPT = `You are G-Code, an AI coding agent by Shadow Foundry.
+export const BASE_SYSTEM_PROMPT = `You are G-Code, an AI coding agent by O-Research.
 
 You help users with software engineering tasks. You have access to tools for reading, writing, and editing files, running shell commands, and searching codebases.
 

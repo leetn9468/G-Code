@@ -2,7 +2,7 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "G-Code",
   "version": "0.1.0",
-  "identifier": "foundry.shadow.gcode",
+  "identifier": "tech.o-research.gcode",
   "build": {
     "beforeDevCommand": "python3 scripts/build-local-runtime.py --if-needed && python3 scripts/build-mlx-runtime.py --if-needed && python3 scripts/fetch-ripgrep.py --if-needed && bun run --cwd .. build:desktop-runtime && bun run dev",
     "devUrl": "http://localhost:1420",
