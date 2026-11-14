@@ -1,8 +1,51 @@
-# G-Code
+<p align="center">
+  <img src="desktop/public/gcode-logo.svg" width="64" height="64" alt="G-Code">
+</p>
 
-**AI Coding Agent** by Shadow Foundry
+<h1 align="center">G-Code</h1>
 
-G-Code is a TypeScript coding-agent CLI with a Tauri desktop app, local GGUF and cloud model providers, coding tools, sub-agents, workflows and MCP servers.
+<p align="center">
+  <strong>An AI coding agent for the Mac.</strong><br>
+  Cloud models or your own local ones, in a native desktop app and a CLI.<br>
+  <sub>by Shadow Foundry</sub>
+</p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/hero-dark.png">
+    <img src="assets/screenshots/hero-light.png" alt="The G-Code desktop app: the agent searches, reads and edits files, runs the tests, then explains the fix">
+  </picture>
+</p>
+
+## What it does
+
+- **Works in your project.** It searches, reads and edits files, runs commands and tests, and shows every step as it happens.
+- **Any model you like.** Claude, GPT, Gemini, DeepSeek and Qwen in the cloud, or a model on your own Mac: GGUF files through the bundled llama.cpp, MLX folders on Apple silicon, or Ollama. Local models need no account.
+- **You stay in control.** Approve each edit and command, plan first, or let it work on its own. Deny rules always apply.
+- **Review every change.** The Changes panel compares any two copies of a file: before the session, the last commit, a saved version or what is on disk now.
+- **Background work.** Dev servers, watchers and long builds run as background tasks you can read and stop. A built-in terminal and browser sit beside the chat.
+- **Attach files.** Click **+**, drop files on the window or paste a screenshot. Images go to models that can see them; other files are read by the agent.
+- **Long sessions.** When the context fills up, G-Code compacts it or hands the work to a fresh session with a written summary.
+- **Extend it.** MCP servers, skills, sub-agents, workflows and DeepSeek Harness tool plugins.
+- **Guillotine Mode.** For local models, an optional network guard that holds the session when the agent tries to reach a destination you have not approved.
+
+<table>
+  <tr>
+    <td width="50%"><img src="assets/screenshots/changes-dark.png" alt="Changes panel with a diff of the edited file"></td>
+    <td width="50%"><img src="assets/screenshots/tasks-dark.png" alt="Tasks panel with a running dev server and a finished test watcher"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Every edit, side by side with the file before the session</sub></td>
+    <td align="center"><sub>Background commands keep running while you chat</sub></td>
+  </tr>
+</table>
+
+<p align="center">
+  <img src="assets/screenshots/attachments-dark.png" width="760" alt="The composer with an image and a Markdown file attached">
+  <br><sub>Attach screenshots and files to a message</sub>
+</p>
+
+<p align="center"><sub>Screenshots show a demo project.</sub></p>
 
 ## Test machines
 
