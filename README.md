@@ -13,6 +13,7 @@
 <p align="center">
   <a href="https://o-research.tech">Website</a> ·
   <a href="https://o-research.tech/results-mac">Test results</a> ·
+  <a href="https://github.com/leetn9468/G-Code/releases/latest">Download</a> ·
   <a href="#installation">Install</a> ·
   <a href="#usage">Usage</a> ·
   <a href="LICENSE">License</a> ·
@@ -74,7 +75,15 @@ G-Code is tested on two Macs:
 
 ## Installation
 
-### From source (recommended)
+### Download the app
+
+Get **G-Code_0.1.0_aarch64.dmg** from the [latest release](https://github.com/leetn9468/G-Code/releases/latest) (macOS 15 or later, Apple silicon). Open it and drag G-Code to Applications.
+
+The app is signed ad hoc and not notarized, so macOS 15 blocks the first launch. Open it once, then choose **System Settings → Privacy & Security → Open Anyway**. The release notes have the details.
+
+Everything the agent needs is inside the app: the local model runtimes (llama.cpp and an MLX server), Node.js, a headless Chromium and ripgrep. Model files are not included.
+
+### From source
 
 ```bash
 # From the repository root
