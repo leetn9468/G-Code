@@ -5,9 +5,9 @@
 <h1 align="center">G-Code</h1>
 
 <p align="center">
-  <strong>An AI coding agent for the Mac.</strong><br>
-  Cloud models or your own local ones, in a native desktop app and a CLI.<br>
-  <sub>by Shadow Foundry</sub>
+  <strong>The AI coding agent that runs entirely on your Mac.</strong><br>
+  Local models, no server, no subscription. It works offline; cloud models are there only if you want them.<br>
+  <sub>by O-Research</sub>
 </p>
 
 <p align="center">
@@ -36,8 +36,9 @@
 
 ## What it does
 
+- **Runs entirely on your Mac.** Pick a local model: an MLX folder on Apple silicon, a GGUF file through the bundled llama.cpp, or Ollama. G-Code then works offline, with no account, no server and no subscription.
+- **Cloud models when you want them.** Claude, GPT, Gemini, DeepSeek and Qwen, with your own API key.
 - **Works in your project.** It searches, reads and edits files, runs commands and tests, and shows every step as it happens.
-- **Any model you like.** Claude, GPT, Gemini, DeepSeek and Qwen in the cloud, or a model on your own Mac: GGUF files through the bundled llama.cpp, MLX folders on Apple silicon, or Ollama. Local models need no account.
 - **You stay in control.** Approve each edit and command, plan first, or let it work on its own. Deny rules always apply.
 - **Review every change.** The Changes panel compares any two copies of a file: before the session, the last commit, a saved version or what is on disk now.
 - **Background work.** Dev servers, watchers and long builds run as background tasks you can read and stop. A built-in terminal and browser sit beside the chat.
