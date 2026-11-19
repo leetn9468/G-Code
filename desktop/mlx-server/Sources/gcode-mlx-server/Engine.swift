@@ -72,6 +72,9 @@ final class Engine {
 
     private let renderedLock = NSLock()
     private var rendered: (prompt: String, tokens: [Int])?
+    /// Keeps added-token text in messages (`<|im_start|>` in a file a tool read) plain text; nil when
+    /// the tokenizer did not come from `LocalTokenizerLoader`.
+    private let literals: ContentLiterals?
 
     init(context: ModelContext, directory: URL, contextSize: Int) {
         self.context = context
@@ -87,6 +90,16 @@ final class Engine {
         stopTokens = stops
         messageStart = context.tokenizer.convertTokenToId("<|im_start|>")
         defaults = ((generation["temperature"] as? NSNumber)?.floatValue ?? 0.8, (generation["top_p"] as? NSNumber)?.floatValue ?? 0.95, (generation["top_k"] as? NSNumber)?.intValue ?? 40)
+        let literals = (context.tokenizer as? TokenizerBridge)?.literals
+        self.literals = literals
+        if let literals {
+            let tokenizer = context.tokenizer
+            let log = { (message: String) in FileHandle.standardError.write(Data((message + "\n").utf8)) }
+            switch literals.verify(template: { try tokenizer.applyChatTemplate(messages: $0, tools: $1, additionalContext: [:]) }) {
+            case .plain: log("added-token text in messages: encoded as plain text (\(literals.texts.count) added tokens)")
+            case .neutralized(let reason): log("added-token text in messages: kept from matching with a word joiner (\(reason))")
+            }
+        }
     }
 
     // MARK: Prompt
@@ -97,7 +110,11 @@ final class Engine {
         var extra: [String: any Sendable] = [:]
         for (key, value) in (body["chat_template_kwargs"] as? [String: Any]) ?? [:] { extra[key] = Self.sendable(value) }
         do {
-            return try context.tokenizer.applyChatTemplate(messages: try messages.map(Self.templateMessage), tools: Self.tools(body), additionalContext: extra)
+            let tokenizer = context.tokenizer
+            let template: ContentLiterals.Template = { try tokenizer.applyChatTemplate(messages: $0, tools: $1, additionalContext: extra) }
+            let messages = try messages.map(Self.templateMessage)
+            guard let literals else { return try template(messages, Self.tools(body)) }
+            return try literals.render(messages: messages, tools: Self.tools(body), template: template)
         } catch let error as ServerError {
             throw error
         } catch {
@@ -113,10 +130,17 @@ final class Engine {
         return prompt
     }
 
+    /// As llama-server's: `parse_special` (default true) matches added tokens' text in `content`;
+    /// false encodes it as plain text.
     func tokenize(_ body: [String: Any]) throws -> [Int] {
         guard let content = body["content"] as? String else { throw ServerError.badRequest("content is required.") }
+        let addSpecial = body["add_special"] as? Bool ?? false
+        if body["parse_special"] as? Bool == false {
+            guard let plain = literals?.plainTokens(content) else { throw ServerError.badRequest("parse_special false is not available for this tokenizer.") }
+            return (addSpecial ? context.tokenizer.encode(text: "", addSpecialTokens: true) : []) + plain
+        }
         if let known = renderedLock.withLock({ rendered }), known.prompt == content { return known.tokens }
-        return context.tokenizer.encode(text: content, addSpecialTokens: body["add_special"] as? Bool ?? false)
+        return context.tokenizer.encode(text: content, addSpecialTokens: addSpecial)
     }
 
     private static func tools(_ body: [String: Any]) -> [[String: any Sendable]]? {
@@ -345,6 +369,7 @@ final class Engine {
 /// Bridges the tokenizer package to MLXLMCommon.
 struct TokenizerBridge: MLXLMCommon.Tokenizer {
     let upstream: any Tokenizers.Tokenizer
+    let literals: ContentLiterals?
 
     func encode(text: String, addSpecialTokens: Bool) -> [Int] { upstream.encode(text: text, addSpecialTokens: addSpecialTokens) }
     func decode(tokenIds: [Int], skipSpecialTokens: Bool) -> String { upstream.decode(tokens: tokenIds, skipSpecialTokens: skipSpecialTokens) }
@@ -365,6 +390,7 @@ struct TokenizerBridge: MLXLMCommon.Tokenizer {
 
 struct LocalTokenizerLoader: TokenizerLoader {
     func load(from directory: URL) async throws -> any MLXLMCommon.Tokenizer {
-        TokenizerBridge(upstream: try await AutoTokenizer.from(modelFolder: directory))
+        let pair = try await TokenizerPair.load(modelFolder: directory)
+        return TokenizerBridge(upstream: pair.full, literals: pair.contentLiterals())
     }
 }

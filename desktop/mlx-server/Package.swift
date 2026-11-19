@@ -21,7 +21,10 @@ let package = Package(
     targets: [
         .target(name: "MLXLMCommon", dependencies: mlx, path: "Vendor/mlx-swift-lm/MLXLMCommon"),
         .target(name: "MLXLLM", dependencies: ["MLXLMCommon"] + mlx, path: "Vendor/mlx-swift-lm/MLXLLM"),
-        .target(name: "MLXServerKit", dependencies: ["MLXLMCommon"], path: "Sources/MLXServerKit", swiftSettings: [.swiftLanguageMode(.v5)]),
+        .target(
+            name: "MLXServerKit",
+            dependencies: ["MLXLMCommon", .product(name: "Tokenizers", package: "swift-transformers"), .product(name: "Hub", package: "swift-transformers")],
+            path: "Sources/MLXServerKit", swiftSettings: [.swiftLanguageMode(.v5)]),
         .executableTarget(
             name: "gcode-mlx-server",
             dependencies: ["MLXServerKit", "MLXLLM", "MLXLMCommon", .product(name: "Tokenizers", package: "swift-transformers")] + mlx,

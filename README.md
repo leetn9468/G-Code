@@ -77,7 +77,7 @@ G-Code is tested on two Macs:
 
 ### Download the app
 
-Get **G-Code_0.1.1_aarch64.dmg** from the [latest release](https://github.com/leetn9468/G-Code/releases/latest) (macOS 15 or later, Apple silicon). Open it and drag G-Code to Applications.
+Get **G-Code_0.1.2_aarch64.dmg** from the [latest release](https://github.com/leetn9468/G-Code/releases/latest) (macOS 15 or later, Apple silicon). Open it and drag G-Code to Applications.
 
 The app is signed ad hoc and not notarized, so macOS 15 blocks the first launch. Open it once, then choose **System Settings → Privacy & Security → Open Anyway**. The release notes have the details.
 
@@ -175,7 +175,7 @@ bun run tauri build
 
 The runtime builder needs Python 3, CMake, and Xcode Command Line Tools. It downloads a pinned source archive with a verified checksum; it does not download or convert model files or replace a system llama.cpp installation. Tauri's dev/build hooks also run this check automatically.
 
-MLX folders run on `gcode-mlx-server`, G-Code's own inference server in `desktop/mlx-server` (Swift, with MLX and its language-model library kept in `Vendor/` so they can be changed there). The app starts and stops it like llama-server, and it answers the same local API. It is text-only. For models with recurrent layers, such as Qwen3.8, it saves those layers' state at message boundaries so a changed prompt only recomputes from the nearest boundary. Qwen3.8-Flash-Next (model type `qwen4_exp`) has its own implementation there. Before it starts the server, the app asks whether the folder's architecture is supported (`gcode-mlx-server --check-model <folder>`), so an unsupported model is refused with its name rather than failing while it loads. Building it needs full Xcode and its Metal Toolchain (`xcodebuild -downloadComponent MetalToolchain`); `python3 scripts/build-mlx-runtime.py --if-needed` runs from the same Tauri hooks.
+MLX folders run on `gcode-mlx-server`, G-Code's own inference server in `desktop/mlx-server` (Swift, with MLX and its language-model library kept in `Vendor/` so they can be changed there). The app starts and stops it like llama-server, and it answers the same local API. It is text-only. Text in a message, a tool result or a tool definition that spells one of the tokenizer's added tokens (`<|im_start|>`, `<|im_end|>`, `<tool_call>`, `<think>` and the like) reaches the model as ordinary characters, never as the control token, so a file or web page in the context cannot open a message of its own. For models with recurrent layers, such as Qwen3.8, it saves those layers' state at message boundaries so a changed prompt only recomputes from the nearest boundary. Qwen3.8-Flash-Next (model type `qwen4_exp`) has its own implementation there. Before it starts the server, the app asks whether the folder's architecture is supported (`gcode-mlx-server --check-model <folder>`), so an unsupported model is refused with its name rather than failing while it loads. Building it needs full Xcode and its Metal Toolchain (`xcodebuild -downloadComponent MetalToolchain`); `python3 scripts/build-mlx-runtime.py --if-needed` runs from the same Tauri hooks.
 
 For an existing Ollama installation, select **Ollama** instead and choose from its discovered installed models. The CLI can list them with `gcode --provider ollama --list-models`; it does not assume an uninstalled Llama model exists.
 
